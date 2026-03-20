@@ -84,7 +84,7 @@ services:
       - QDRANT_USE_TLS=${QDRANT_USE_TLS:-false}
       - MILVUS_ADDRESS=milvus:19530
       - MILVUS_COLLECTION=${MILVUS_COLLECTION:-weknora_embeddings}
-      - DOCREADER_ADDR=${DOCREADER_ADDR:-docreader:50051}
+      - DOCREADER_ADDR=${DOCREADER_ADDR:-docreader:50053}
       - DOCREADER_TRANSPORT=${DOCREADER_TRANSPORT:-grpc}
       - WEAVIATE_HOST=${WEAVIATE_HOST:-weaviate:8080}
       - WEAVIATE_GRPC_ADDRESS=${WEAVIATE_GRPC_ADDRESS:-weaviate:50051}
@@ -329,7 +329,7 @@ services:
       - RAFT_BOOTSTRAP_EXPECT=1
     ports:
       - "9035:8080"
-      - "50052:50051"
+      - "50052:50052"
     volumes:
       - weaviate_data:/var/lib/weaviate
     networks:
@@ -338,17 +338,86 @@ services:
     profiles:
       - weaviate
 
+  embedding:
+    image: local/weknora-embedding:1.0.0
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.embedding
+      args:
+        - APT_MIRROR=${APT_MIRROR:-}
+    container_name: WeKnora-embedding
+    ports:
+      - "${EMBEDDING_PORT:-8889}:8889"
+    environment:
+      - prox=${CUDA_VISIBLE_DEVICES:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8889/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    profiles:
+      - embedding
+      - full
 networks:
   WeKnora-network:
     driver: bridge
 
 volumes:
   postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/postgres
   data-files:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/files
   docreader-tmp:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/docreader-tmp
   jaeger_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/jaeger
   minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/minio
   neo4j-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/neo4j
   qdrant_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/qdrant
   milvus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/milvus
   weaviate_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/weaviate
