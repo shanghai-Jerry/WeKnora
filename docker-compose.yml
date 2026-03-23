@@ -339,12 +339,12 @@ services:
       - weaviate
 
   embedding:
-    image: local/weknora-embedding:1.0.0
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.embedding
-      args:
-        - APT_MIRROR=${APT_MIRROR:-}
+    image: jerryyouinshanhai/weknora-bgerank-embedding:1.0.0
+    #build:
+    #  context: .
+    #  dockerfile: docker/Dockerfile.embedding
+    #  args:
+    #    - APT_MIRROR=${APT_MIRROR:-}
     container_name: WeKnora-embedding
     ports:
       - "${EMBEDDING_PORT:-8889}:8889"
@@ -373,6 +373,32 @@ services:
     networks:
       - WeKnora-network
     restart: unless-stopped
+  sglang:
+    image: local/weknora-sglang:1.0.0
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sglang
+    container_name: WeKnora-sglang
+    ports:
+      - "${SGLANG_PORT:-30012}:30012"
+    environment:
+      - SGLANG_USE_MODELSCOPE=${SGLANG_USE_MODELSCOPE:-true}
+      - MODEL_PATH=${SGLANG_MODEL_PATH:-MedAIBase/AntAngelMed-FP8}
+      - HF_CACHE=${SGLANG_HF_CACHE:-/root/.cache/huggingface}
+      - PORT=${SGLANG_PORT:-30012}
+      - SERVED_MODEL_NAME=${SGLANG_MODEL_NAME:-AntAngelMed-FP8}
+      - ATTENTION_BACKEND=${SGLANG_ATTENTION_BACKEND:-fa3}
+      - TENSOR_PARALLEL_SIZE=${SGLANG_TP_SIZE:-1}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
+    volumes:
+      - ${SGLANG_MODEL_PATH:-/workspace}:${SGLANG_MODEL_PATH:-/workspace}:ro
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    profiles:
+      - sglang
+      - full
+
 networks:
   WeKnora-network:
     driver: bridge
