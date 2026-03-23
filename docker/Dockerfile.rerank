@@ -1,4 +1,4 @@
-FROM python:3.11.10 AS builder
+FROM jerryyouinshanhai/weknora-bgerank-embedding:1.0.1 AS builder
 
 WORKDIR /app
 # 安装构建依赖
