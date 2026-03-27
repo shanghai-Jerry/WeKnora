@@ -15,11 +15,11 @@ ENV GOPROXY=${GOPROXY_ARG}
 ENV GOSUMDB=${GOSUMDB_ARG}
 
 # Install dependencies
-RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
-    fi && \
-    apt-get update && \
-    apt-get install -y git build-essential libsqlite3-dev
+# RUN if [ -n "$APK_MIRROR_ARG" ]; then \
+#         sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+#     fi && \
+#     apt-get update && \
+#     apt-get install -y git build-essential libsqlite3-dev
 
 # Install migrate tool
 RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
@@ -57,24 +57,24 @@ ARG APK_MIRROR_ARG
 # Create a non-root user first
 RUN useradd -m -s /bin/bash appuser
 
-RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
-    fi && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential postgresql-client default-mysql-client ca-certificates tzdata sed curl bash vim wget \
-        libsqlite3-0 \
-        python3 python3-pip python3-dev libffi-dev libssl-dev \
-        nodejs npm \
-        gosu && \
-    python3 -m pip install --break-system-packages --upgrade pip setuptools wheel && \
-    mkdir -p /home/appuser/.local/bin && \
-    curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh && \
-    chown -R appuser:appuser /home/appuser && \
-    ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx && \
-    chmod +x /usr/local/bin/uvx && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# RUN if [ -n "$APK_MIRROR_ARG" ]; then \
+#         sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+#     fi && \
+#     apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#         build-essential postgresql-client default-mysql-client ca-certificates tzdata sed curl bash vim wget \
+#         libsqlite3-0 \
+#         python3 python3-pip python3-dev libffi-dev libssl-dev \
+#         nodejs npm \
+#         gosu && \
+#     python3 -m pip install --break-system-packages --upgrade pip setuptools wheel && \
+#     mkdir -p /home/appuser/.local/bin && \
+#     curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh && \
+#     chown -R appuser:appuser /home/appuser && \
+#     ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx && \
+#     chmod +x /usr/local/bin/uvx && \
+#     apt-get clean && \
+#     rm -rf /var/lib/apt/lists/*
 
 # Create data directories and set permissions
 RUN mkdir -p /data/files && \

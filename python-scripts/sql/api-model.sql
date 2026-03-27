@@ -29,3 +29,11 @@ VALUES (
     null,
     false
   );
+
+
+
+
+-- source 字段太小，需要修改为text， 长URL就可以导入
+
+ALTER TABLE knowledges
+ALTER COLUMN source TYPE text;
