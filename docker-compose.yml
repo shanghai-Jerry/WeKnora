@@ -271,6 +271,45 @@ services:
     profiles:
       - jaeger
       - full
+  neo4j-test:
+    image: neo4j:5.26
+    container_name: neo4j-test
+    restart: always
+    networks:
+      - WeKnora-network
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    volumes:
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test:/data
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/logs:/logs
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/import:/import
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
+      
+      # --- 内存优化关键修改 START ---
+      # 1. 设置初始堆内存 = 最大堆内存 (防止动态扩容时的性能抖动)
+      - NEO4J_server_memory_heap_initial__size=2G
+      - NEO4J_server_memory_heap_max__size=2G
+      
+      # 2. 调小 Page Cache！
+      # 计算公式：容器限制(4G) - Heap(2G) - 预留给系统/JVM(1G) = 1G
+      - NEO4J_server_memory_pagecache_size=1G
+      # --- 内存优化关键修改 END ---
+
+      - NEO4J_server_default__listen__address=0.0.0.0
+
+      # --- 事务超时（禁用事务超时，避免大批次写入时超时）---
+      - NEO4J_dbms_transaction_timeout=0
+
+      # --- APOC 配置 ---
+      # 注意：如果你没有手动下载 jar 包到 plugins 目录，需要加下面这行自动下载
+      - NEO4J_PLUGINS=["apoc"] 
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_export_file_enabled=true
 
   neo4j:
     image: neo4j:5.26
@@ -282,10 +321,10 @@ services:
       - "7474:7474"
       - "7687:7687"
     volumes:
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test:/data
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/logs:/logs
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/import:/import
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/plugins:/plugins
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j:/data
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j/logs:/logs
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j/import:/import
+      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j/plugins:/plugins
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
       

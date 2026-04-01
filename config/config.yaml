@@ -47,45 +47,74 @@ knowledge_base:
 extract:
   extract_graph:
     description: |
-      Based on the given text, complete the information extraction task following these steps, ensuring clear logic and complete, accurate information:
+      基于给定的文本，按照以下步骤完成信息抽取任务，确保逻辑清晰、信息完整准确。
 
-      ## Step 1: Entity Extraction and Attribute Enrichment
-      1. **Extract core entities**: Read through the text and extract all core entities relevant to the task in logical order (such as narrative order or entity association closeness).
-      2. **Enrich entity attributes**: For each extracted entity, comprehensively supplement its detailed attributes explicitly mentioned in the text, ensuring no key attributes are omitted.
+      ## 步骤一：实体抽取与属性补全
+      1. **抽取核心实体**：通读文本，按逻辑顺序（如叙述顺序或实体关联紧密程度）抽取与视光医疗相关的所有核心实体，包括但不限于疾病/症状、检查方法、治疗方式、药物、设备、机构、人员（医生/研究者）、时间等。
+      2. **补全实体属性**：对每个抽取的实体，完整补充文本中明确提到的详细属性（如疾病的分型、分期、检查的正常值范围、药物的用法用量、设备型号等），确保不遗漏关键信息。
 
-      ## Step 2: Relationship Extraction and Verification
-      1. **Identify relationship types**: Select corresponding types only from the specified relationship list. Allowed relationship types are: %s.
-      2. **Extract valid relationships**: Based on the extracted entities and attributes, identify relationships that genuinely exist in the text, ensuring relationships are factually accurate with no false associations.
-      3. **Clarify relationship subjects**: For each extracted relationship, clearly annotate the two associated entities to avoid subject confusion.
-      4. **Supplement related attributes**: If the text contains supplementary information directly related to a relationship, include it as a related attribute of the relationship.
+      ## 步骤二：关系抽取与校验
+      1. **确定关系类型**：优先参考预定义的关系类型列表（如%s等），但如果文本中存在未在列表中但合理的关系，允许使用自然语言描述的关系名称（例如“并发”、“禁忌”、“替代”等），确保关系名称能准确反映实体间的实际关联。
+      2. **抽取有效关系**：基于抽取的实体及其属性，识别文本中真实存在的关系，确保关系事实准确，无虚假关联。
+      3. **明确关系主体**：对每个抽取的关系，清晰标注所关联的两个实体，避免主体混淆。
+      4. **补充关系属性**：若文本中包含与关系直接相关的补充信息（如因果关系中的条件、治疗关系中的疗程、药物关系中的剂量等），将其作为关系属性一并记录。
     tags:
-      - "Author"
-      - "Alias"
+      - "疾病_症状"
+      - "检查_诊断"
+      - "治疗_干预"
+      - "药物_使用"
+      - "设备_应用"
+      - "机构_合作"
+      - "人员_参与"
     examples:
       - text: |
-          "Romeo and Juliet" is a tragedy written by William Shakespeare early in his career about the romance between two Italian youths from feuding families.
-          It was among Shakespeare's most popular plays during his lifetime. The play is also known by its alternative title "The Most Excellent and Lamentable Tragedy of Romeo and Juliet".
-          The story follows Romeo of the Montague family and Juliet of the Capulet family, whose forbidden love ends in tragedy.
+          “角膜塑形镜（OK镜）是一种用于矫正近视的硬性透气性角膜接触镜，适用于8岁以上、近视度数在-4.00D以内且角膜形态正常的青少年。 
+          该镜片由博士伦公司生产，通常夜间佩戴8-10小时。临床研究显示，使用OK镜的青少年近视年增长量平均减少0.30D。 
+          北京大学人民医院眼科王医生团队近期发表的一项为期两年的随访研究，进一步证实了OK镜在延缓青少年近视进展中的有效性。”
         node:
-          - name: "Romeo and Juliet"
+          - name: "角膜塑形镜"
             attributes:
-              - "A tragedy by William Shakespeare"
-              - "Also known as 'The Most Excellent and Lamentable Tragedy of Romeo and Juliet'"
-              - "Among Shakespeare's most popular plays"
-          - name: "The Most Excellent and Lamentable Tragedy of Romeo and Juliet"
+              - "硬性透气性角膜接触镜"
+              - "用于矫正近视"
+              - "夜间佩戴8-10小时"
+              - "又称OK镜"
+          - name: "近视"
             attributes:
-              - "Alternative title for Romeo and Juliet"
-          - name: "William Shakespeare"
+              - "适用度数范围：-4.00D以内"
+              - "常见于青少年"
+          - name: "青少年"
             attributes:
-              - "Playwright"
-              - "Author of Romeo and Juliet, written early in his career"
+              - "适用年龄：8岁以上"
+              - "角膜形态需正常"
+          - name: "博士伦公司"
+            attributes:
+              - "生产商"
+          - name: "北京大学人民医院眼科"
+            attributes:
+              - "研究机构"
+          - name: "王医生团队"
+            attributes:
+              - "研究人员"
+              - "发表为期两年的随访研究"
         relation:
-          - node1: "Romeo and Juliet"
-            node2: "William Shakespeare"
-            type: "Author"
-          - node1: "Romeo and Juliet"
-            node2: "The Most Excellent and Lamentable Tragedy of Romeo and Juliet"
-            type: "Alias"
+          - node1: "角膜塑形镜"
+            node2: "近视"
+            type: "治疗_干预"
+            attributes: ["延缓近视进展", "年增长量平均减少0.30D"]
+          - node1: "角膜塑形镜"
+            node2: "青少年"
+            type: "适用人群"
+            attributes: ["年龄8岁以上", "角膜形态正常"]
+          - node1: "角膜塑形镜"
+            node2: "博士伦公司"
+            type: "生产"
+          - node1: "北京大学人民医院眼科"
+            node2: "王医生团队"
+            type: "人员_参与"
+          - node1: "王医生团队"
+            node2: "角膜塑形镜"
+            type: "研究"
+            attributes: ["为期两年的随访研究", "证实延缓近视进展有效性"]
   extract_entity:
     description: |
       Based on the user's question, process the key information extraction task following these steps:

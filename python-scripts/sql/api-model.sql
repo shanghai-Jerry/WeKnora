@@ -37,3 +37,10 @@ VALUES (
 
 ALTER TABLE knowledges
 ALTER COLUMN source TYPE text;
+
+
+-- extract_config 字段太小，需要修改为text， 长JSON就可以导入
+--
+update knowledges
+set extract_config = '[]'
+where id = '409dda1f-6ab9-4206-b52e-9c0c4d75b32b';
