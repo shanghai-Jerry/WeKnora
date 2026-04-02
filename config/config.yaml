@@ -117,16 +117,23 @@ extract:
             attributes: ["为期两年的随访研究", "证实延缓近视进展有效性"]
   extract_entity:
     description: |
-      Based on the user's question, process the key information extraction task following these steps:
-      1. Analyze logical connections: First, fully analyze the text content, identify its core logical relationships, and briefly annotate the core logic type;
-      2. Extract key entities: Based on the identified logical relationships, precisely extract key information from the text and classify it into clear entities, ensuring no core information is omitted and no redundant content is added;
-      3. Prioritize entities: Sort by the closeness of each entity's association with the core topic of the text, presenting the most important entities for understanding the main idea first;
+      根据用户输入的文本，按照以下步骤完成关键信息抽取任务：
+      1. 分析逻辑关系：首先全面分析文本内容，识别其核心逻辑关系（如病因、诊断、治疗、预防、并发症等），并简要标注核心逻辑类型；
+      2. 抽取关键实体：基于识别出的逻辑关系，精准抽取文本中的关键信息，归类为清晰实体，确保不遗漏核心信息、不添加冗余内容；
+      3. 实体类型标注：对每个抽取的实体，明确其类型（如疾病、症状、检查方法、药物、设备、机构、人员、时间等），便于后续知识融合；
+      4. 实体优先级排序：按照各实体与文本核心主题的关联紧密程度进行排序，优先呈现对理解主旨最重要的实体。
     examples:
-      - text: "'Romeo and Juliet' is a tragedy written by William Shakespeare early in his career, and is one of the most frequently performed plays in world literature."
+      - text: |
+          “角膜塑形镜（OK镜）是一种用于矫正近视的硬性透气性角膜接触镜，适用于8岁以上、近视度数在-4.00D以内且角膜形态正常的青少年。该镜片由博士伦公司生产。”
         node:
-          - name: "Romeo and Juliet"
-          - name: "William Shakespeare"
-          - name: "world literature"
+          - name: "角膜塑形镜"
+            type: "设备"
+          - name: "近视"
+            type: "疾病"
+          - name: "青少年"
+            type: "人群"
+          - name: "博士伦公司"
+            type: "机构"
   fabri_text:
     with_tag: |
       Please randomly generate a text related to %s, with a word count between [50-200], and try to include some professional terms or typical elements related to these tags to make the text more targeted and relevant.
