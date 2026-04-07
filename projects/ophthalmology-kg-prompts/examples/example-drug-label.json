@@ -1,0 +1,120 @@
+{
+  "input": {
+    "source_type": "drug_label",
+    "source_name": "拉坦前列素滴眼液（适利达®）药品说明书",
+    "text": "【药品名称】通用名：拉坦前列素滴眼液；商品名：适利达®（Xalatan®）\n【成分】活性成分：拉坦前列素；辅料：氯化钠、磷酸二氢钠等。浓度：50μg/mL（0.005%）。\n【适应症】降低开角型青光眼和高眼压症患者升高的眼压。\n【用法用量】推荐剂量为每日1次，每次1滴，滴于患眼。最佳滴药时间为晚间。\n【不良反应】十分常见（≥10%）：虹膜色素加深（棕褐色虹膜发生率最高）、结膜充血、睫毛变化（变长、变粗、色加深、睫毛数量增加）。常见（1%-10%）：点状角膜上皮损害、眼痒、眶周水肿、虹膜炎。\n【禁忌】对活性成分或辅料过敏者禁用。活动性眼部炎症（如葡萄膜炎）患者禁用。\n【药理作用】拉坦前列素为前列腺素F2α类似物，通过增加葡萄膜巩膜外流降低眼压。\n【注意事项】本药可逐步增加虹膜色素，此变化可能不可逆。使用隐形眼镜者应在滴药前取出镜片，滴药后15分钟再配戴。孕妇及哺乳期妇女仅在明确需要时使用。\n【贮藏】2-8°C冷藏保存。开封后可在25°C以下保存，但不超过6周。"
+  },
+  "prompt_used": "05-source-specific.md 模板 5.4（药品说明书抽取模板）",
+  "output": {
+    "drug_entity": {
+      "name": "拉坦前列素滴眼液",
+      "type": "Drug",
+      "aliases": ["适利达", "Xalatan"]
+    },
+    "drug_attributes": {
+      "ingredients": ["拉坦前列素"],
+      "concentration": "50μg/mL（0.005%）",
+      "drug_class": "前列腺素F2α类似物",
+      "dosage_form": "滴眼液",
+      "usage": "每日1次，每次1滴，晚间滴于患眼",
+      "mechanism": "增加葡萄膜巩膜外流降低眼压",
+      "storage": "2-8°C冷藏；开封后25°C以下不超过6周",
+      "precautions": [
+        "可能逐步增加虹膜色素（可能不可逆）",
+        "使用隐形眼镜者应在滴药前取出镜片，滴药后15分钟再配戴"
+      ],
+      "population_limitations": {
+        "pregnancy": "仅在明确需要时使用",
+        "lactation": "仅在明确需要时使用"
+      }
+    },
+    "triplets": [
+      {
+        "head": {"name": "开角型青光眼", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "evidence": "降低开角型青光眼和高眼压症患者升高的眼压",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "高眼压症", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "evidence": "高眼压症",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "对拉坦前列素过敏", "type": "RiskFactor"},
+        "relation": "CONTRAINDICATED",
+        "tail": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "evidence": "对活性成分或辅料过敏者禁用",
+        "confidence": "high",
+        "attributes": {"contraindication_type": "绝对禁忌"}
+      },
+      {
+        "head": {"name": "葡萄膜炎", "type": "Disease"},
+        "relation": "CONTRAINDICATED",
+        "tail": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "evidence": "活动性眼部炎症（如葡萄膜炎）患者禁用",
+        "confidence": "high",
+        "attributes": {"contraindication_type": "绝对禁忌", "condition": "活动性"}
+      },
+      {
+        "head": {"name": "妊娠", "type": "RiskFactor"},
+        "relation": "CONTRAINDICATED",
+        "tail": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "evidence": "孕妇及哺乳期妇女仅在明确需要时使用",
+        "confidence": "high",
+        "attributes": {"contraindication_type": "相对禁忌"}
+      },
+      {
+        "head": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "虹膜色素加深", "type": "Symptom"},
+        "evidence": "十分常见（≥10%）：虹膜色素加深",
+        "confidence": "high",
+        "attributes": {"adverse_reaction_frequency": "≥10%", "reversibility": "可能不可逆"}
+      },
+      {
+        "head": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "结膜充血", "type": "Symptom"},
+        "evidence": "十分常见（≥10%）：结膜充血",
+        "confidence": "high",
+        "attributes": {"adverse_reaction_frequency": "≥10%"}
+      },
+      {
+        "head": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "睫毛变化", "type": "Symptom"},
+        "evidence": "睫毛变化（变长、变粗、色加深、睫毛数量增加）",
+        "confidence": "high",
+        "attributes": {"adverse_reaction_frequency": "≥10%"}
+      },
+      {
+        "head": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "点状角膜上皮损害", "type": "Disease"},
+        "evidence": "常见（1%-10%）：点状角膜上皮损害",
+        "confidence": "high",
+        "attributes": {"adverse_reaction_frequency": "1%-10%"}
+      },
+      {
+        "head": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "眼痒", "type": "Symptom"},
+        "evidence": "眼痒",
+        "confidence": "high",
+        "attributes": {"adverse_reaction_frequency": "1%-10%"}
+      },
+      {
+        "head": {"name": "拉坦前列素滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "虹膜炎", "type": "Disease"},
+        "evidence": "虹膜炎",
+        "confidence": "high",
+        "attributes": {"adverse_reaction_frequency": "1%-10%"}
+      }
+    ]
+  }
+}

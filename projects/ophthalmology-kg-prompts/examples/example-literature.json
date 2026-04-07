@@ -1,0 +1,68 @@
+{
+  "input": {
+    "source_type": "literature",
+    "source_name": "PubMed Abstract - Low-dose atropine for myopia control",
+    "text": "Low-dose atropine for myopia progression control in children: a systematic review and meta-analysis. Purpose: To evaluate the efficacy and safety of different concentrations of atropine for myopia control. Methods: We searched PubMed, Embase, and Cochrane Library for randomized controlled trials (RCTs) comparing atropine with placebo for myopia control in children. Results: Twelve RCTs with 2,856 participants were included. Atropine 0.01% significantly reduced myopia progression (mean difference: -0.53 D/year, 95% CI: -0.62 to -0.44) compared with placebo. Atropine 0.05% showed greater efficacy (-0.71 D/year) but with higher incidence of photophobia (15.3% vs 3.2% for 0.01%). No serious adverse events were reported. Conclusion: Low-dose atropine 0.01% provides an optimal balance between efficacy and safety for pediatric myopia control. Higher concentrations offer greater myopia control but with more side effects.",
+    "doi": "10.1016/j.ophtha.2024.03.015"
+  },
+  "prompt_used": "05-source-specific.md 模板 5.3（PubMed文献抽取模板）",
+  "output": {
+    "metadata": {
+      "research_type": "RCT（系统综述/Meta分析）",
+      "study_population": "儿童近视患者，共2856人，12项RCT",
+      "source_type": "literature",
+      "doi": "10.1016/j.ophtha.2024.03.015"
+    },
+    "triplets": [
+      {
+        "head": {"name": "近视", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "硫酸阿托品滴眼液", "type": "Drug"},
+        "evidence": "Atropine 0.01% significantly reduced myopia progression",
+        "confidence": "high",
+        "attributes": {
+          "concentration": "0.01%",
+          "target_population": "儿童",
+          "efficacy": "年均近视进展减少 0.53 D（vs 安慰剂）",
+          "evidence_level": "I级（系统综述/Meta分析）",
+          "sample_size": "2856人"
+        }
+      },
+      {
+        "head": {"name": "近视", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "硫酸阿托品滴眼液", "type": "Drug"},
+        "evidence": "Atropine 0.05% showed greater efficacy (-0.71 D/year)",
+        "confidence": "high",
+        "attributes": {
+          "concentration": "0.05%",
+          "target_population": "儿童",
+          "efficacy": "年均近视进展减少 0.71 D",
+          "evidence_level": "I级（系统综述/Meta分析）"
+        }
+      },
+      {
+        "head": {"name": "硫酸阿托品滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "畏光", "type": "Symptom"},
+        "evidence": "higher incidence of photophobia (15.3% vs 3.2% for 0.01%)",
+        "confidence": "high",
+        "attributes": {
+          "concentration": "0.05%",
+          "adverse_reaction_rate": "15.3%"
+        }
+      },
+      {
+        "head": {"name": "硫酸阿托品滴眼液", "type": "Drug"},
+        "relation": "HAS_SYMPTOM",
+        "tail": {"name": "畏光", "type": "Symptom"},
+        "evidence": "0.01% group photophobia rate 3.2%",
+        "confidence": "high",
+        "attributes": {
+          "concentration": "0.01%",
+          "adverse_reaction_rate": "3.2%"
+        }
+      }
+    ]
+  }
+}
