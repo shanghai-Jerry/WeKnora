@@ -18,6 +18,7 @@
                     <span class="tag_name">{{ item.name }}</span>
                 </span>
             </div>
+            <graphInfo :session="session"></graphInfo>
             <docInfo :session="session"></docInfo>
             <AgentStreamDisplay :session="session" :user-query="userQuery" v-if="session.isAgentMode"></AgentStreamDisplay>
             <deepThink :deepSession="session" v-if="session.showThink && !session.isAgentMode"></deepThink>
@@ -63,6 +64,7 @@
 import { onMounted, onBeforeUnmount, watch, computed, ref, reactive, defineProps, nextTick } from 'vue';
 import { marked } from 'marked';
 import docInfo from './docInfo.vue';
+import graphInfo from './graphInfo.vue';
 import deepThink from './deepThink.vue';
 import AgentStreamDisplay from './AgentStreamDisplay.vue';
 import picturePreview from '@/components/picture-preview.vue';

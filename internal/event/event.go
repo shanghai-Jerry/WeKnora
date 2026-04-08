@@ -52,6 +52,7 @@ const (
 	EventAgentToolResult  EventType = "tool_result"  // 工具结果
 	EventAgentReflection  EventType = "reflection"   // Agent 反思
 	EventAgentReferences  EventType = "references"   // 知识引用
+	EventAgentGraphData   EventType = "graph_data"   // 知识图谱数据
 	EventAgentFinalAnswer EventType = "final_answer" // 最终答案
 
 	// Error events

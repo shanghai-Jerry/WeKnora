@@ -61,6 +61,7 @@ func (h *AgentStreamHandler) Subscribe() {
 	h.eventBus.On(event.EventAgentToolCall, h.handleToolCall)
 	h.eventBus.On(event.EventAgentToolResult, h.handleToolResult)
 	h.eventBus.On(event.EventAgentReferences, h.handleReferences)
+	h.eventBus.On(event.EventAgentGraphData, h.handleGraphData)
 	h.eventBus.On(event.EventAgentFinalAnswer, h.handleFinalAnswer)
 	h.eventBus.On(event.EventAgentReflection, h.handleReflection)
 	h.eventBus.On(event.EventError, h.handleError)
@@ -271,6 +272,35 @@ func (h *AgentStreamHandler) handleReferences(ctx context.Context, evt event.Eve
 		},
 	}); err != nil {
 		logger.GetLogger(h.ctx).Error("Append references event to stream failed", "error", err)
+	}
+
+	return nil
+}
+
+// handleGraphData handles knowledge graph data events
+func (h *AgentStreamHandler) handleGraphData(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.AgentGraphData)
+	if !ok {
+		return nil
+	}
+
+	if data.Graph == nil || (len(data.Graph.Node) == 0 && len(data.Graph.Relation) == 0) {
+		return nil
+	}
+
+	// Append graph_data event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeGraphData,
+		Content:   "",
+		Done:      false,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"nodes":     data.Graph.Node,
+			"relations": data.Graph.Relation,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append graph_data event to stream failed", "error", err)
 	}
 
 	return nil

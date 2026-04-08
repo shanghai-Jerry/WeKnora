@@ -16,8 +16,7 @@ services:
     networks:
       - WeKnora-network
     restart: unless-stopped
-    profiles:
-      - rerank
+  
   frontend:
     image: wechatopenai/weknora-ui:dev
     build:
@@ -310,6 +309,8 @@ services:
       - NEO4J_dbms_security_procedures_allowlist=apoc.*
       - NEO4J_apoc_import_file_enabled=true
       - NEO4J_apoc_export_file_enabled=true
+    profiles:
+      - neo4j-test
 
   neo4j:
     image: neo4j:5.26
@@ -368,8 +369,7 @@ services:
     networks:
       - WeKnora-network
     profiles:
-      - neo4j
-      - full
+      - neo4j-original
 
   qdrant:
     image: qdrant/qdrant:v1.16.2

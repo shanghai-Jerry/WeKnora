@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -132,6 +133,17 @@ func (p *PluginSearchEntity) OnEvent(ctx context.Context,
 		Relation: allRelations,
 	}
 	logger.Infof(ctx, "Total entity search result: %d nodes, %d relations", len(allNodes), len(allRelations))
+
+	// Emit graph_data event for frontend display
+	if chatManage.EventBus != nil && (len(allNodes) > 0 || len(allRelations) > 0) {
+		_ = chatManage.EventBus.Emit(ctx, types.Event{
+			Type:      types.EventType(event.EventAgentGraphData),
+			SessionID: chatManage.SessionID,
+			Data: event.AgentGraphData{
+				Graph: chatManage.GraphResult,
+			},
+		})
+	}
 
 	chunkIDs := filterSeenChunk(ctx, chatManage.GraphResult, chatManage.SearchResult)
 	if len(chunkIDs) == 0 {

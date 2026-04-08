@@ -1,5 +1,7 @@
 package event
 
+import "github.com/Tencent/WeKnora/internal/types"
+
 // EventData contains common event data structures for different stages
 
 // QueryData represents query-related event data
@@ -179,6 +181,12 @@ type AgentToolResultData struct {
 type AgentReferencesData struct {
 	References interface{} `json:"references"` // []*types.SearchResult
 	Iteration  int         `json:"iteration"`
+}
+
+// AgentGraphData represents knowledge graph data for frontend display
+type AgentGraphData struct {
+	Graph     *types.GraphData `json:"graph"`
+	Iteration int              `json:"iteration"`
 }
 
 // AgentFinalAnswerData represents final answer streaming data

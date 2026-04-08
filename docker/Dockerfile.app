@@ -15,14 +15,14 @@ ENV GOPROXY=${GOPROXY_ARG}
 ENV GOSUMDB=${GOSUMDB_ARG}
 
 # Install dependencies
-# RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-#         sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
-#     fi && \
-#     apt-get update && \
-#     apt-get install -y git build-essential libsqlite3-dev
+RUN if [ -n "$APK_MIRROR_ARG" ]; then \
+        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+    fi && \
+    apt-get update && \
+    apt-get install -y git build-essential libsqlite3-dev
 
 # Install migrate tool
-RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+# RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
@@ -30,7 +30,6 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd/download cmd/download
 RUN go run cmd/download/duckdb/duckdb.go
 COPY . .
-
 # Get version and commit info for build injection
 ARG VERSION_ARG
 ARG COMMIT_ID_ARG

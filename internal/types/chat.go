@@ -54,6 +54,8 @@ const (
 	ResponseTypeError ResponseType = "error"
 	// Reflection response type (for agent reflection)
 	ResponseTypeReflection ResponseType = "reflection"
+	// Graph data response type (for knowledge graph nodes and relations)
+	ResponseTypeGraphData ResponseType = "graph_data"
 	// Session title response type
 	ResponseTypeSessionTitle ResponseType = "session_title"
 	// Agent query response type (query received and processing started)
