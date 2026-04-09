@@ -75,7 +75,8 @@ extract:
          - 药物（Drug）：别名（aliases）、有效成分（ingredients）、药物分类（drug_class）、剂型（dosage_form）、浓度（concentration）、用法用量（usage）、作用机制（mechanism）、适应症（indications）、禁忌症（contraindications）、不良反应（adverse_reactions）、医保类别（insurance_category）、储存条件（storage）
          - 检查（Examination）：别名（aliases）、检查类别（category）、检查目的（purpose）、灵敏度（sensitivity）、特异性（specificity）、正常参考值（normal_range）、所需设备（equipment）、检查时长（duration）、检查前准备（preparation）、检查局限性（limitations）
       3. **处理特殊情况**：嵌套实体分别提取（如"糖尿病视网膜病变"需同时提取"糖尿病"和"视网膜"）；缩写按上下文消歧并记录别名（如OCT→光学相干断层扫描）。
-
+      4. **部分实体的属性示例**： 如，aliases, definition, icd_code, prevalence, onset_age, chronicity, inheritance, severity_levels, prognosis, key_clinical_features， 其他属性根据实体类型不同而不同。
+      
       ## 步骤二：关系抽取与校验
       1. **确定关系类型**：从以下12种预定义关系中选择最匹配的类型：
          - HAS_SYMPTOM（表现为）：疾病 → 症状/体征，如青光眼 → 视野缺损
@@ -93,6 +94,7 @@ extract:
       2. **抽取有效关系**：识别文本中真实存在的关系，确保关系事实准确，无虚假关联。
       3. **明确关系主体**：清晰标注关系关联的两个实体，避免方向错误。
       4. **补充关系属性**：将关系相关的补充信息（如治疗线、循证等级、适用分期、禁忌类型等）作为属性一并记录。
+      5. **其中部分关系类型示例**： 如 %s，这里展示的不全，仅展示示例，实际抽取时必须严格按照上述完整关系类型执行，确保文本中提及的所有关系都被提取，不要因为示例中未展示某些关系就省略。
 
       ## 步骤三：质量控制
       1. **否定处理**：否定句中的实体和关系不抽取（如"不伴有眼痛"则不提取疾病→眼痛关系）。

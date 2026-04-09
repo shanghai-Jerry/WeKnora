@@ -175,6 +175,15 @@ func (n *Neo4jRepository) SearchNode(
 
 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (interface{}, error) {
 		labelExpr := n.Label(namespace)
+		// Search nodes and relationships，支持多跳查询
+		/**
+		MATCH (n:` + labelExpr + `)
+		WHERE ANY(nodeText IN $nodes WHERE n.name CONTAINS nodeText)
+		CALL apoc.path.subgraphAll(n, {maxLevel: $depth})
+		YIELD nodes, relationships
+		UNWIND relationships AS single_rel
+		RETURN DISTINCT startNode(single_rel) AS n, single_rel AS r, endNode(single_rel) AS m
+		**/
 		query := `
 			MATCH (n:` + labelExpr + `)-[r]-(m:` + labelExpr + `)
 			WHERE ANY(nodeText IN $nodes WHERE n.name CONTAINS nodeText)

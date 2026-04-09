@@ -189,7 +189,7 @@ build_frontend_image() {
     docker build \
         --platform $PLATFORM \
         -f frontend/Dockerfile \
-        -t wechatopenai/weknora-ui:latest \
+        -t wechatopenai/weknora-ui:$DOCKER_TAG \
         frontend/
     
     if [ $? -eq 0 ]; then

@@ -18,11 +18,11 @@ services:
     restart: unless-stopped
   
   frontend:
-    image: wechatopenai/weknora-ui:dev
+    image: wechatopenai/weknora-ui:${WEKNORA_FRONTEND_VERSION:-latest}
     build:
        context: ./frontend
        args:
-         - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+         - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-100}
     container_name: WeKnora-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"
@@ -44,7 +44,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: wechatopenai/weknora-app:${WEKNORA_VERSION:-latest}
+    image: wechatopenai/weknora-app:${WEKNORA_APP_VERSION:-latest}
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile.app
@@ -140,6 +140,10 @@ services:
       - WEKNORA_SANDBOX_DOCKER_IMAGE=${WEKNORA_SANDBOX_DOCKER_IMAGE:-wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}}
       - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
     depends_on:
+      neo4j:
+        condition: service_started
+      rerank:
+        condition: service_started
       redis:
         condition: service_started
       postgres:
@@ -277,13 +281,13 @@ services:
     networks:
       - WeKnora-network
     ports:
-      - "7475:7474"
-      - "7688:7687"
+      - "7475:7476"
+      - "7688:7689"
     volumes:
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test:/data
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/logs:/logs
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/import:/import
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j-data-test/plugins:/plugins
+      - neo4j-data-test:/data
+      - neo4j-data-test/logs:/logs
+      - neo4j-data-test/import:/import
+      - neo4j-data-test/plugins:/plugins
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
       
@@ -355,7 +359,7 @@ services:
     image: neo4j:5.26
     container_name: WeKnora-neo4j
     volumes:
-      - neo4j-data-test:/var/lib/neo4j/data
+      - neo4j-data-original:/var/lib/neo4j/data
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
       - NEO4J_apoc_export_file_enabled=true
@@ -472,7 +476,12 @@ volumes:
       type: none
       o: bind
       device: ${DATA_DIR:-./data}/minio
-  
+  neo4j-data-test:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/neo4j-data-test
   neo4j-data-dev:
     driver: local
     driver_opts:
