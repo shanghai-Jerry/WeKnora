@@ -281,13 +281,13 @@ services:
     networks:
       - WeKnora-network
     ports:
-      - "7475:7476"
-      - "7688:7689"
+      - "7476:7474"
+      - "7689:7687"
     volumes:
-      - neo4j-data-test:/data
-      - neo4j-data-test/logs:/logs
-      - neo4j-data-test/import:/import
-      - neo4j-data-test/plugins:/plugins
+      - ${DATA_DIR:-./data}/neo4j-data-test:/data
+      - ${DATA_DIR:-./data}/neo4j-data-test/logs:/logs
+      - ${DATA_DIR:-./data}/neo4j-data-test/import:/import
+      - ${DATA_DIR:-./data}/neo4j-data-test/plugins:/plugins
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
       
@@ -476,12 +476,6 @@ volumes:
       type: none
       o: bind
       device: ${DATA_DIR:-./data}/minio
-  neo4j-data-test:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_DIR:-./data}/neo4j-data-test
   neo4j-data-dev:
     driver: local
     driver_opts:
