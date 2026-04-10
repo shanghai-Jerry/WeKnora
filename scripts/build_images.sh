@@ -144,7 +144,7 @@ build_app_image() {
         --build-arg BUILD_TIME_ARG="$BUILD_TIME" \
         --build-arg GO_VERSION_ARG="$GO_VERSION" \
         -f docker/Dockerfile.app \
-        -t wechatopenai/weknora-app:$DOCKER_TAG \
+        -t jerryyouinshanhai/weknora-app:$DOCKER_TAG \
         .
     
     if [ $? -eq 0 ]; then
@@ -168,7 +168,7 @@ build_docreader_image() {
         --build-arg TARGETARCH=$TARGETARCH \
         --build-arg APT_MIRROR=${APT_MIRROR:-} \
         -f docker/Dockerfile.docreader \
-        -t wechatopenai/weknora-docreader:latest \
+        -t jerryyouinshanhai/weknora-docreader:latest \
         .
     
     if [ $? -eq 0 ]; then
@@ -189,7 +189,7 @@ build_frontend_image() {
     docker build \
         --platform $PLATFORM \
         -f frontend/Dockerfile \
-        -t wechatopenai/weknora-ui:$DOCKER_TAG \
+        -t jerryyouinshanhai/weknora-ui:$DOCKER_TAG \
         frontend/
     
     if [ $? -eq 0 ]; then

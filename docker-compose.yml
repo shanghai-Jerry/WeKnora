@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
   
   frontend:
-    image: wechatopenai/weknora-ui:${WEKNORA_FRONTEND_VERSION:-latest}
+    image: jerryyouinshanhai/weknora-ui:dev-1.0.1
     build:
        context: ./frontend
        args:
@@ -44,7 +44,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: wechatopenai/weknora-app:${WEKNORA_APP_VERSION:-latest}
+    image: jerryyouinshanhai/weknora-app:${WEKNORA_APP_VERSION:-latest}
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile.app
@@ -137,7 +137,7 @@ services:
       # Agent Skills Sandbox
       - WEKNORA_SANDBOX_MODE=${WEKNORA_SANDBOX_MODE:-docker}
       - WEKNORA_SANDBOX_TIMEOUT=${WEKNORA_SANDBOX_TIMEOUT:-60}
-      - WEKNORA_SANDBOX_DOCKER_IMAGE=${WEKNORA_SANDBOX_DOCKER_IMAGE:-wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}}
+      - WEKNORA_SANDBOX_DOCKER_IMAGE=${WEKNORA_SANDBOX_DOCKER_IMAGE:-jerryyouinshanhai/weknora-sandbox:${WEKNORA_VERSION:-latest}}
       - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
     depends_on:
       neo4j:
@@ -149,7 +149,7 @@ services:
       postgres:
         condition: service_healthy
       docreader:
-        condition: service_healthy
+        condition: service_started
     networks:
       - WeKnora-network
     restart: unless-stopped
@@ -158,7 +158,7 @@ services:
 
   # Sandbox 镜像：仅用于 build/pull，非常驻服务；app 执行 Skills 时按需 docker run 该镜像，用毕即释
   sandbox:
-    image: wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}
+    image: jerryyouinshanhai/weknora-sandbox:${WEKNORA_VERSION:-latest}
     container_name: WeKnora-sandbox
     build:
       context: .
@@ -167,9 +167,8 @@ services:
       - full
     command: ["true"]
     restart: "no"
-
   docreader:
-    image: wechatopenai/weknora-docreader:${WEKNORA_VERSION:-latest}
+    image: jerryyouinshanhai/weknora-docreader:${WEKNORA_VERSION:-latest}
     build:
       context: .
       dockerfile: docker/Dockerfile.docreader
@@ -326,10 +325,10 @@ services:
       - "7474:7474"
       - "7687:7687"
     volumes:
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j:/data
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j/logs:/logs
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j/import:/import
-      - /Users/edy/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/data/neo4j/plugins:/plugins
+      - ${DATA_DIR:-./data}/neo4j:/data
+      - ${DATA_DIR:-./data}/neo4j/logs:/logs
+      - ${DATA_DIR:-./data}/neo4j/import:/import
+      - ${DATA_DIR:-./data}/neo4j/plugins:/plugins
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
       
