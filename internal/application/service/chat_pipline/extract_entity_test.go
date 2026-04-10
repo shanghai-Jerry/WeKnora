@@ -1,0 +1,77 @@
+package chatpipline
+
+import (
+	"context"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/Tencent/WeKnora/internal/models/chat"
+	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
+	"github.com/Tencent/WeKnora/internal/types"
+)
+
+func TestExtractor_Extract(t *testing.T) {
+	templateExample := []types.GraphData{}
+	templateDescription := strings.TrimSpace(`
+		你是一名眼科视光领域的医学知识抽取专家。根据用户输入的眼科医学文本，按照以下步骤完成关键实体识别与分类任务：
+
+      ## 核心原则
+      1. **忠实原文**：只识别文本中明确出现的实体，不要推断或补充原文未提及的内容。
+      2. **标准术语**：优先使用标准医学术语（对齐 ICD-10 / SNOMED CT），保留专有名词。原文中的别名和缩写应记录。
+      3. **唯一归属**：一个实体只能归属一种类型，选择最精确的类型。
+      4. **否定排除**：否定句中的实体不提取（如"不伴有眼痛"中不提取"眼痛"作为当前疾病症状）。
+      5. **非医学排除**：不提取非医学实体（医院名、医生姓名、时间日期、样本量、统计方法等）。
+
+      ## 实体类型（8种）
+      1. **Anatomy（解剖结构）**：眼球及附件的解剖学结构，如角膜、视网膜、晶状体、视神经、黄斑区、泪腺、睫状体、虹膜、巩膜、脉络膜
+      2. **Disease（疾病/异常）**：眼科疾病和视功能异常，如开角型青光眼、干眼症、糖尿病视网膜病变、近视、白内障、黄斑变性、斜视、弱视
+      3. **Symptom（症状/体征）**：患者主观症状或临床客观体征，如视力下降、眼痛、眼红、飞蚊症、畏光、流泪、眼干、视野缺损、虹视、复视
+      4. **Examination（检查方法）**：眼科诊断和评估检查，如OCT、视野检查、裂隙灯显微镜检查、眼压测量、角膜地形图、验光、荧光素眼底血管造影
+      5. **Stage（诊断/分期）**：疾病的分期、分级、分型，如轻度干眼、增殖期糖尿病视网膜病变、早期年龄相关性白内障、高度近视（>600度）
+      6. **Treatment（治疗干预）**：药物治疗、手术治疗、光学矫正、康复训练，如LASIK、ICL植入术、角膜塑形镜验配、视觉训练、抗VEGF治疗、激光光凝
+      7. **Drug（药物/器械）**：眼科用药和医疗器械产品，如0.01%阿托品滴眼液、左氧氟沙星滴眼液、人工泪液、多焦点IOL、离焦镜片
+      8. **RiskFactor（风险因素）**：增加眼病发生风险的因素，如糖尿病、高血压、高度近视家族史、长时间近距离用眼、紫外线暴露、年龄>60岁
+
+      ## 抽取步骤
+      1. **分析逻辑关系**：全面分析文本内容，识别核心逻辑关系（如病因、诊断、治疗、预防、并发症等），简要标注逻辑类型。
+      2. **抽取关键实体**：基于逻辑关系，精准抽取文本中的关键信息，归类为上述8种实体类型，确保不遗漏核心信息、不添加冗余内容。
+      3. **实体类型标注**：对每个实体明确标注最精确的类型。注意区分：疾病（Disease）vs 症状（Symptom）、检查项目（Examination）vs 参数值（不提取）、疾病分期（Stage）vs 疾病本身（Disease）。
+      4. **处理特殊情况**：
+         - 嵌套实体分别提取：如"糖尿病视网膜病变"需分别识别为 Disease（糖尿病视网膜病变）、RiskFactor（糖尿病）、Anatomy（视网膜）
+         - 缩写消歧：如"OCT"在眼科指光学相干断层扫描，需消歧为标准名称
+         - 同义词归并：如"老年性白内障"和"年龄相关性白内障"归并为标准名称
+         - 数值不提取："眼压16mmHg"中"16mmHg"是参数值不提取，但"眼压升高"整体作为Symptom提取
+      5. **优先级排序**：按各实体与文本核心主题的关联紧密程度排序，优先呈现最重要的实体。`)
+	// Test case: Successful extraction
+	template := &types.PromptTemplateStructured{
+		Description: templateDescription,
+		Examples:    templateExample,
+	}
+
+	ctx := context.Background()
+
+	os.Setenv("OLLAMA_BASE_URL", "http://docker.host.internal:11434")
+
+	ollamservice, err := ollama.GetOllamaService()
+	if err != nil {
+		t.Errorf("Failed to get Ollama service: %v", err)
+	}
+	model, err := chat.NewOllamaChat(&chat.ChatConfig{
+		ModelName: "qwen3.5:27b",
+	}, ollamservice)
+	if err != nil {
+		t.Errorf("Failed to create Ollama chat: %v", err)
+	}
+
+	extractor := NewExtractor(model, template)
+	graph, err := extractor.Extract(ctx, "你好")
+	if err != nil {
+		t.Errorf("Failed to extract entities: %v", err)
+	}
+	nodes := []string{}
+	for _, node := range graph.Node {
+		nodes = append(nodes, node.Name)
+	}
+	t.Logf("Extracted nodes: %v", nodes)
+}
