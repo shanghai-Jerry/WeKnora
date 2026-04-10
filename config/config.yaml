@@ -17,7 +17,7 @@ conversation:
   fallback_response: "Sorry, I am unable to answer this question."
   fallback_prompt_id: "default_fallback_prompt"  # from prompt_templates/fallback.yaml (mode: "model")
   enable_rewrite: true
-  enable_query_expansion: true
+  enable_query_expansion: false
   enable_rerank: true
   rewrite_prompt_id: "default_rewrite"  # from prompt_templates/rewrite.yaml (content + user fields)
   generate_summary_prompt_id: "default_summary"  # from prompt_templates/generate_summary.yaml
@@ -100,6 +100,34 @@ extract:
       1. **否定处理**：否定句中的实体和关系不抽取（如"不伴有眼痛"则不提取疾病→眼痛关系）。
       2. **排除内容**：不抽取非医学实体（医院名、医生姓名、患者个人信息）、时间信息、样本量等研究细节、统计学方法。
       3. **置信度判定**：文本直接陈述为 high，间接暗示需推理为 medium，模糊或跨段落推断为 low。
+
+      ## 输出格式要求（必须严格遵守）
+      1. 抽取结果必须且只能放在以 ```json 开头、```结尾的代码块中，不要在代码块外输出任何解释性文字。
+      2. 代码块内容为 JSON 数组，每个元素为一个实体对象。
+      3. 每个实体对象可能包含以下字段：
+         - `entity`：实体名称（字符串）
+         - `entity_attributes`：实体属性列表（字符串数组，可选，如无属性可省略）
+         - `entity1`：源实体名称（字符串）
+         - `entity2`：目的实体名称（字符串）
+         - `relation`：实体关系
+      4. 如未抽取到任何实体，返回空数组 `[]`。
+      5. 输出示例：
+         ```json
+         [
+           {
+             "entity": "青光眼",
+             "entity_attributes": ["别名:绿内障", "定义:以视神经损害和视野缺损为特征的眼病"]
+           },
+           {
+             "entity": "眼压升高"
+           },
+           {
+             "entity1": "青光眼",
+             "entity2": "眼压升高",
+             "relation": "TREATED_BY"
+           }
+         ]
+         ```
     tags:
       - "HAS_SYMPTOM"
       - "LOCATED_IN"
@@ -168,20 +196,35 @@ extract:
          - 数值不提取："眼压16mmHg"中"16mmHg"是参数值不提取，但"眼压升高"整体作为Symptom提取
       5. **优先级排序**：按各实体与文本核心主题的关联紧密程度排序，优先呈现最重要的实体。
 
+      ## 输出格式要求（必须严格遵守）
+      1. 抽取结果必须且只能放在以 ```json 开头、```结尾的代码块中，不要在代码块外输出任何解释性文字。
+      2. 代码块内容为 JSON 数组，每个元素为一个实体对象。
+      3. 每个实体对象可能包含以下字段：
+         - `entity`：实体名称（字符串）
+         - `entity_attributes`：实体属性列表（字符串数组，可选，如无属性可省略）
+      4. 如未抽取到任何实体，返回空数组 `[]`。
+      5. 输出示例：
+         ```json
+         [
+           {
+             "entity": "青光眼",
+             "entity_attributes": ["别名:绿内障", "定义:以视神经损害和视野缺损为特征的眼病"]
+           },
+           {
+             "entity": "眼压升高"
+             
+           }
+         ]
+         ```
     examples:
       - text: |
           患者右眼视力逐渐下降3年，加重半年。既往有2型糖尿病病史15年。眼科检查：双眼晶状体混浊，核性II级。眼压右眼16mmHg，左眼18mmHg。OCT示双眼黄斑区视网膜厚度正常。
         node:
           - name: "虹膜色素加深"
-            type: "Symptom"
           - name: "睫毛增长"
-            type: "Symptom"
           - name: "结膜充血"
-            type: "Symptom"
           - name: "眼部炎症"
-            type: "Disease"
           - name: "葡萄膜炎"
-            type: "Disease"
   fabri_text:
     with_tag: |
       Please randomly generate a text related to %s, with a word count between [50-200], and try to include some professional terms or typical elements related to these tags to make the text more targeted and relevant.
