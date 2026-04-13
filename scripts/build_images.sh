@@ -181,10 +181,10 @@ build_docreader_image() {
 }
 
 build_rerank_image() {
-    log_info "构建前端镜像 (weknora-ui)..."
+    log_info "构建前端镜像 (weknora-rerank)..."
     
     cd "$PROJECT_ROOT"
-    docker build -f docker/Dockerfile.rerank -t jerryyouinshanhai/weknora-bgerank-rerank-bge-m3:1.0.1 .
+    docker build -f docker/Dockerfile.rerank -t jerryyouinshanhai/weknora-bgerank-rerank-bge-m3-arm64:1.0.1 .
 
     if [ $? -eq 0 ]; then
         log_success "镜像构建成功"

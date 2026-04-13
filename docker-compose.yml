@@ -1,12 +1,17 @@
 services:
   rerank:
-    image: jerryyouinshanhai/weknora-bgerank-rerank-bge-m3:1.0.1
+    image: jerryyouinshanhai/weknora-bgerank-rerank-bge-m3-arm64-modelpreload:1.0.2
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile.rerank
+    #   args:
+    #     - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
     container_name: WeKnora-rerank
     ports:
       - "${EMBEDDING_PORT:-8889}:8000"
     environment:
       - prox=${CUDA_VISIBLE_DEVICES:-}
-    command: ["python", "rerank_server_bge.py"]
+    command: ["uv", "run", "rerank_server_bge.py"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000"]
       interval: 30s

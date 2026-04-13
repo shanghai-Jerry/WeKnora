@@ -31,7 +31,6 @@ class TestFinalResponse(BaseModel):
 
 # --- 修改结束 ---
 
-
 # --- 2. 加载模型 (在服务启动时执行一次) ---
 print("正在加载模型，请稍候...")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
