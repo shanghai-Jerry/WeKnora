@@ -147,7 +147,7 @@ func (p *PluginExtractEntity) OnEvent(ctx context.Context,
 	for _, node := range graph.Node {
 		nodes = append(nodes, node.Name)
 	}
-	logger.Debugf(ctx, "extracted node: %v", nodes)
+	logger.Warnf(ctx, "extracted node: %v", nodes)
 	chatManage.Entity = nodes
 	return next()
 }
