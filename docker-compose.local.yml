@@ -1,15 +1,39 @@
 services:
+  rerank:
+    image: jerryyouinshanhai/weknora-bgerank-rerank-bge-m3-arm64-modelpreload:1.0.2
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile.rerank
+    #   args:
+    #     - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
+    container_name: WeKnora-rerank
+    ports:
+      - "${EMBEDDING_PORT:-8889}:8000"
+    environment:
+      - prox=${CUDA_VISIBLE_DEVICES:-}
+    command: ["uv", "run", "rerank_server_bge.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+  
   frontend:
-    image: wechatopenai/weknora-ui:${WEKNORA_VERSION:-latest}
+    # image: jerryyouinshanhai/weknora-ui:dev-1.0.1
+    image: wechatopenai/weknora-ui:latest
     build:
-      context: ./frontend
-      args:
-        - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+       context: ./frontend
+       args:
+         - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-100}
     container_name: WeKnora-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"
     environment:
-      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-100}
       - APP_HOST=${APP_HOST:-app}
       # APP_BACKEND_PORT: the port NGINX proxies to (default 8080).
       # For local deployment this is the App container's listening port, independent of host-mapped APP_PORT.
@@ -26,12 +50,13 @@ services:
     restart: unless-stopped
 
   app:
-    image: wechatopenai/weknora-app:${WEKNORA_VERSION:-latest}
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.app
-      args:
-        - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
+    # image: jerryyouinshanhai/weknora-app:${WEKNORA_APP_VERSION:-latest}
+    image: wechatopenai/weknora-app:latest
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile.app
+    #   args:
+    #     - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
     container_name: WeKnora-app
     ports:
       - "${APP_PORT:-8080}:8080"
@@ -121,15 +146,19 @@ services:
       # Agent Skills Sandbox
       - WEKNORA_SANDBOX_MODE=${WEKNORA_SANDBOX_MODE:-docker}
       - WEKNORA_SANDBOX_TIMEOUT=${WEKNORA_SANDBOX_TIMEOUT:-60}
-      - WEKNORA_SANDBOX_DOCKER_IMAGE=${WEKNORA_SANDBOX_DOCKER_IMAGE:-wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}}
+      - WEKNORA_SANDBOX_DOCKER_IMAGE=${WEKNORA_SANDBOX_DOCKER_IMAGE:-jerryyouinshanhai/weknora-sandbox:${WEKNORA_VERSION:-latest}}
       - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
     depends_on:
+      neo4j:
+        condition: service_started
+      rerank:
+        condition: service_started
       redis:
         condition: service_started
       postgres:
         condition: service_healthy
       docreader:
-        condition: service_healthy
+        condition: service_started
     networks:
       - WeKnora-network
     restart: unless-stopped
@@ -138,7 +167,7 @@ services:
 
   # Sandbox 镜像：仅用于 build/pull，非常驻服务；app 执行 Skills 时按需 docker run 该镜像，用毕即释
   sandbox:
-    image: wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}
+    image: jerryyouinshanhai/weknora-sandbox:${WEKNORA_VERSION:-latest}
     container_name: WeKnora-sandbox
     build:
       context: .
@@ -147,9 +176,8 @@ services:
       - full
     command: ["true"]
     restart: "no"
-
   docreader:
-    image: wechatopenai/weknora-docreader:${WEKNORA_VERSION:-latest}
+    image: jerryyouinshanhai/weknora-docreader:${WEKNORA_VERSION:-latest}
     build:
       context: .
       dockerfile: docker/Dockerfile.docreader
@@ -179,6 +207,8 @@ services:
   postgres:
     image: paradedb/paradedb:v0.22.2-pg17
     container_name: WeKnora-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -252,12 +282,92 @@ services:
     profiles:
       - jaeger
       - full
+  neo4j-test:
+    image: neo4j:5.26
+    container_name: neo4j-test
+    restart: always
+    networks:
+      - WeKnora-network
+    ports:
+      - "7476:7474"
+      - "7689:7687"
+    volumes:
+      - ${DATA_DIR:-./data}/neo4j-data-test:/data
+      - ${DATA_DIR:-./data}/neo4j-data-test/logs:/logs
+      - ${DATA_DIR:-./data}/neo4j-data-test/import:/import
+      - ${DATA_DIR:-./data}/neo4j-data-test/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
+      
+      # --- 内存优化关键修改 START ---
+      # 1. 设置初始堆内存 = 最大堆内存 (防止动态扩容时的性能抖动)
+      - NEO4J_server_memory_heap_initial__size=2G
+      - NEO4J_server_memory_heap_max__size=2G
+      
+      # 2. 调小 Page Cache！
+      # 计算公式：容器限制(4G) - Heap(2G) - 预留给系统/JVM(1G) = 1G
+      - NEO4J_server_memory_pagecache_size=1G
+      # --- 内存优化关键修改 END ---
+
+      - NEO4J_server_default__listen__address=0.0.0.0
+
+      # --- 事务超时（禁用事务超时，避免大批次写入时超时）---
+      - NEO4J_dbms_transaction_timeout=0
+
+      # --- APOC 配置 ---
+      # 注意：如果你没有手动下载 jar 包到 plugins 目录，需要加下面这行自动下载
+      - NEO4J_PLUGINS=["apoc"] 
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_export_file_enabled=true
+    profiles:
+      - neo4j-test
 
   neo4j:
-    image: neo4j:2025.10.1
+    image: neo4j:5.26
+    container_name: neo4j-medical
+    restart: always
+    networks:
+      - WeKnora-network
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ${DATA_DIR:-./data}/neo4j:/data
+      - ${DATA_DIR:-./data}/neo4j/logs:/logs
+      - ${DATA_DIR:-./data}/neo4j/import:/import
+      - ${DATA_DIR:-./data}/neo4j/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
+      
+      # --- 内存优化关键修改 START ---
+      # 1. 设置初始堆内存 = 最大堆内存 (防止动态扩容时的性能抖动)
+      - NEO4J_server_memory_heap_initial__size=2G
+      - NEO4J_server_memory_heap_max__size=2G
+      
+      # 2. 调小 Page Cache！
+      # 计算公式：容器限制(4G) - Heap(2G) - 预留给系统/JVM(1G) = 1G
+      - NEO4J_server_memory_pagecache_size=1G
+      # --- 内存优化关键修改 END ---
+
+      - NEO4J_server_default__listen__address=0.0.0.0
+
+      # --- 事务超时（禁用事务超时，避免大批次写入时超时）---
+      - NEO4J_dbms_transaction_timeout=0
+
+      # --- APOC 配置 ---
+      # 注意：如果你没有手动下载 jar 包到 plugins 目录，需要加下面这行自动下载
+      - NEO4J_PLUGINS=["apoc"] 
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_export_file_enabled=true
+  neo4j-original:
+    image: neo4j:5.26
     container_name: WeKnora-neo4j
     volumes:
-      - neo4j-data:/data
+      - neo4j-data-original:/var/lib/neo4j/data
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
       - NEO4J_apoc_export_file_enabled=true
@@ -271,8 +381,7 @@ services:
     networks:
       - WeKnora-network
     profiles:
-      - neo4j
-      - full
+      - neo4j-original
 
   qdrant:
     image: qdrant/qdrant:v1.16.2
@@ -358,11 +467,69 @@ networks:
 
 volumes:
   postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/postgres
   data-files:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/files
   docreader-tmp:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/docreader-tmp
   jaeger_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/jaeger
   minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/minio
+  neo4j-data-dev:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/neo4j-data-dev
+  
   neo4j-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/neo4j
   qdrant_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/qdrant
   milvus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/milvus
   weaviate_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/weaviate
+  ollama_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/ollama

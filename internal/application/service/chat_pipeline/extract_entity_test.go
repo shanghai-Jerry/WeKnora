@@ -13,7 +13,7 @@ import (
 func TestExtractor_ExtractStream(t *testing.T) {
 	templateExample := []types.GraphData{}
 
-	promptBytes, _ := os.ReadFile("/Users/moineye/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/python-scripts/prompt/extract_entity_prompt.txt")
+	promptBytes, _ := os.ReadFile("../../../python-scripts/prompt/extract_entity_prompt.txt")
 	templateDescription := strings.TrimSpace(string(promptBytes))
 	// Test case: Successful extraction
 	template := &types.PromptTemplateStructured{
@@ -58,7 +58,7 @@ func TestFormater_extractContent(t *testing.T) {
 	}{
 		{
 			name:     "test",
-			textPath: "/Users/moineye/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/internal/application/service/chat_pipline/extract_data/1.txt",
+			textPath: "./extract_data/1.txt",
 			want:     "",
 		},
 	}
@@ -82,8 +82,8 @@ func TestFormater_parseOutput(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:     "test",
-			text: "/Users/moineye/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/internal/application/service/chat_pipline/extract_data/1.txt",
+			name: "test",
+			text: "./extract_data/1.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -118,8 +118,8 @@ func TestFormater_ParseGraph(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:     "test",
-			text: "/Users/moineye/workspace/gopath/src/github.com/shanghai-Jerry/WeKnora/internal/application/service/chat_pipline/extract_data/1.txt",
+			name: "test",
+			text: "./extract_data/1.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -137,7 +137,7 @@ func TestFormater_ParseGraph(t *testing.T) {
 			if tt.wantErr {
 				t.Fatal("ParseGraph() succeeded unexpectedly")
 			}
-			
+
 			var names []string
 			for _, node := range got.Node {
 				names = append(names, node.Name)
