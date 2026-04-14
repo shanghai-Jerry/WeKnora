@@ -1008,7 +1008,7 @@ func (h *KnowledgeHandler) GetKnowledgeBatch(c *gin.Context) {
 		return
 	}
 
-	logger.Infof(ctx, "Batch knowledge retrieval successful, requested count: %d, returned count: %d",
+	logger.Debugf(ctx, "Batch knowledge retrieval successful, requested count: %d, returned count: %d",
 		len(req.IDs), len(knowledges))
 
 	c.JSON(http.StatusOK, gin.H{

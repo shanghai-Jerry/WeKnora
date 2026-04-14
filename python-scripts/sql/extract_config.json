@@ -1,0 +1,31 @@
+{
+    "tags": [
+        "包含",
+        "导致",
+        "治疗",
+        "影响",
+        "采用",
+        "验配",
+        "风险因素"
+    ],
+    "text": "\"Romeo and Juliet\" is ",
+    "nodes": [
+        {
+            "name": "Romeo"
+        },
+        {
+            "name": "The Most",
+            "attributes": [
+                "attributes"
+            ]
+        }
+    ],
+    "enabled": true,
+    "relations": [
+        {
+            "type": "包含",
+            "node1": "Romeo",
+            "node2": "The Most"
+        }
+    ]
+}

@@ -146,7 +146,7 @@ func (p *PluginExtractEntity) OnEvent(ctx context.Context,
 	for _, node := range graph.Node {
 		nodes = append(nodes, node.Name)
 	}
-	logger.Debugf(ctx, "extracted node: %v", nodes)
+	logger.Warnf(ctx, "extracted node: %v", nodes)
 	chatManage.Entity = nodes
 	return next()
 }
@@ -164,7 +164,7 @@ func NewExtractor(
 	chatModel chat.Chat,
 	template *types.PromptTemplateStructured,
 ) Extractor {
-	think := false
+	think := true
 	return Extractor{
 		chat:     chatModel,
 		formater: NewFormater(),
@@ -177,20 +177,40 @@ func NewExtractor(
 	}
 }
 
-// Extract extracts entities from content
+// Extract extracts entities from content using streaming chat
 func (e *Extractor) Extract(ctx context.Context, content string) (*types.GraphData, error) {
 	generator := NewQAPromptGenerator(e.formater, e.template)
 
-	// logger.Debugf(ctx, "chat system: %s", generator.System(ctx))
-	// logger.Debugf(ctx, "chat user: %s", generator.User(ctx, content))
+	logger.Debugf(ctx, "Extractsystem chat system: %s", generator.System(ctx))
+	logger.Debugf(ctx, "Extractuser chat user: %s", generator.User(ctx, content))
 
-	chatResponse, err := e.chat.Chat(ctx, generator.Render(ctx, content), e.chatOpt)
+	// Use streaming to get the model response
+	responseChan, err := e.chat.ChatStream(ctx, generator.Render(ctx, content), e.chatOpt)
 	if err != nil {
-		logger.Errorf(ctx, "failed to chat: %v", err)
+		logger.Errorf(ctx, "failed to start chat stream: %v", err)
 		return nil, err
 	}
 
-	graph, err := e.formater.ParseGraph(ctx, chatResponse.Content)
+	// Collect all answer chunks from the stream
+	var fullContent strings.Builder
+	var streamErr error
+	for response := range responseChan {
+		switch response.ResponseType {
+		case types.ResponseTypeAnswer:
+			fullContent.WriteString(response.Content)
+		case types.ResponseTypeError:
+			logger.Errorf(ctx, "stream error: %s", response.Content)
+			streamErr = fmt.Errorf("stream error: %s", response.Content)
+		// Skip thinking and other non-answer response types
+		default:
+			continue
+		}
+	}
+	if streamErr != nil {
+		return nil, streamErr
+	}
+
+	graph, err := e.formater.ParseGraph(ctx, fullContent.String())
 	if err != nil {
 		logger.Errorf(ctx, "failed to parse graph: %v", err)
 		return nil, err
@@ -280,14 +300,16 @@ func (qa *QAPromptGenerator) User(ctx context.Context, question string) string {
 
 // Render renders a prompt
 func (qa *QAPromptGenerator) Render(ctx context.Context, question string) []chat.Message {
+	systemContent := qa.System(ctx)
+	userContent := qa.User(ctx, question)
 	return []chat.Message{
 		{
 			Role:    "system",
-			Content: qa.System(ctx),
+			Content: systemContent,
 		},
 		{
 			Role:    "user",
-			Content: qa.User(ctx, question),
+			Content: userContent,
 		},
 	}
 }
@@ -390,7 +412,7 @@ func (f *Formater) parseOutput(ctx context.Context, text string) ([]map[string]i
 		err = json.Unmarshal([]byte(content), &parsed)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s content: %s", strings.ToUpper(string(f.formatType)), err.Error())
+		return nil, fmt.Errorf("failed to parse %s content: %s, content:%v", strings.ToUpper(string(f.formatType)), err.Error(), text)
 	}
 	if parsed == nil {
 		return nil, fmt.Errorf("content must be a list of extractions or a dict")
@@ -425,8 +447,8 @@ func (f *Formater) ParseGraph(ctx context.Context, text string) (*types.GraphDat
 		logger.Debugf(ctx, "received empty extraction data.")
 		return &types.GraphData{}, nil
 	}
-	// mm, _ := json.Marshal(matchData)
-	// logger.Debugf(ctx, "Parsed graph data: %s", string(mm))
+	mm, _ := json.Marshal(matchData)
+	logger.Debugf(ctx, "Parsedgraph data: %s", string(mm))
 
 	var nodes []*types.GraphNode
 	var relations []*types.GraphRelation
@@ -519,6 +541,7 @@ func (f *Formater) extractContent(ctx context.Context, text string) string {
 		FormatTypeYAML: {"yaml": {}, "yml": {}},
 		FormatTypeJSON: {"json": {}},
 	}
+	logger.Warnf(ctx, "extractContent text: %v", text)
 	matches := _FENCE_RE.FindAllStringSubmatch(text, -1)
 	var candidates []string
 	for _, match := range matches {

@@ -613,6 +613,43 @@ onChunk((data) => {
         return;
     }
     
+    // 处理 graph_data 事件 - 知识图谱节点和关系数据
+    if (data.response_type === 'graph_data') {
+        // 如果当前是 Agent 模式，走 Agent 处理
+        if (isCurrentlyAgentMode) {
+            handleAgentChunk(data);
+            return;
+        }
+        // 非 Agent 模式：将 graph_data 保存到消息中供 graphInfo 使用
+        let existingMessage = messagesList.findLast((item) => item.request_id === data.id || item.id === data.id);
+        
+        // 如果消息还不存在，先创建一个空的 assistant 消息
+        if (!existingMessage) {
+            existingMessage = {
+                id: data.id,
+                request_id: data.id,
+                role: 'assistant',
+                content: '',
+                showThink: false,
+                thinkContent: '',
+                thinking: false,
+                is_completed: false,
+                knowledge_references: [],
+                graph_data: null
+            };
+            messagesList.push(existingMessage);
+            loading.value = false;
+            scrollToBottom();
+        }
+        
+        existingMessage.graph_data = {
+            nodes: data.data?.nodes || [],
+            relations: data.data?.relations || []
+        };
+        console.log('[GraphData] Saved to message, nodes:', existingMessage.graph_data.nodes.length, 'relations:', existingMessage.graph_data.relations.length);
+        return;
+    }
+    
     // Agent 模式处理（包括 stop 事件）
     if (shouldHandleAsAgent) {
         // 在 handleAgentChunk 中处理 loading 状态
@@ -703,7 +740,8 @@ const handleAgentChunk = (data) => {
             agentEventStream: [],
             // Map to track event by event_id for quick lookup
             _eventMap: new Map(),
-            knowledge_references: []
+            knowledge_references: [],
+            graph_data: null
         };
         messagesList.push(newMsg);
         loading.value = false; // 消息已创建，关闭 loading
@@ -916,6 +954,14 @@ const handleAgentChunk = (data) => {
                 // 兼容旧格式
                 message.knowledge_references = data.knowledge_references;
             }
+            break;
+
+        case 'graph_data':
+            // 知识图谱数据
+            message.graph_data = {
+                nodes: data.data?.nodes || [],
+                relations: data.data?.relations || []
+            };
             break;
             
         case 'answer':

@@ -15,6 +15,9 @@
 *.swp
 *.swo
 
+# python scripts
+python-scripts/event-stream/*
+projects/data/*
 # 构建和依赖文件
 node_modules/
 /dist/
@@ -35,6 +38,7 @@ data/files/
 data/weknora.db
 data/weknora.db-wal
 data/weknora.db-shm
+data/*
 
 web/
 

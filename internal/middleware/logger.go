@@ -228,6 +228,6 @@ func Logger() gin.HandlerFunc {
 		if responseBodyStr != "" {
 			logMsg = logMsg.WithField("response_body", secutils.SanitizeForLog(responseBodyStr))
 		}
-		logMsg.Info()
+		logMsg.Debug()
 	}
 }

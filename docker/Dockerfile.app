@@ -30,7 +30,6 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd/download cmd/download
 RUN go run cmd/download/duckdb/duckdb.go
 COPY . .
-
 # Get version and commit info for build injection
 ARG VERSION_ARG
 ARG COMMIT_ID_ARG

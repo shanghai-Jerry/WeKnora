@@ -247,7 +247,7 @@ func (c *RemoteAPIChat) BuildChatCompletionRequest(messages []Message, opts *Cha
 // logRequest 记录请求日志
 func (c *RemoteAPIChat) logRequest(ctx context.Context, req any, isStream bool) {
 	if jsonData, err := json.MarshalIndent(req, "", "  "); err == nil {
-		logger.Infof(ctx, "[LLM Request] model=%s, stream=%v, request:\n%s", c.modelName, isStream, secutils.CompactImageDataURLForLog(string(jsonData)))
+		logger.Debugf(ctx, "[LLM Request] model=%s, stream=%v, request:\n%s", c.modelName, isStream, secutils.CompactImageDataURLForLog(string(jsonData)))
 	}
 }
 

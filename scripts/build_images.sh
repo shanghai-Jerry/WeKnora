@@ -12,6 +12,7 @@ NC='\033[0m' # 无颜色
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
+DOCKER_TAG="dev-1.0.0-test"
 # 版本信息
 VERSION="1.0.0"
 SCRIPT_NAME=$(basename "$0")
@@ -143,7 +144,7 @@ build_app_image() {
         --build-arg BUILD_TIME_ARG="$BUILD_TIME" \
         --build-arg GO_VERSION_ARG="$GO_VERSION" \
         -f docker/Dockerfile.app \
-        -t wechatopenai/weknora-app:latest \
+        -t jerryyouinshanhai/weknora-app:$DOCKER_TAG \
         .
     
     if [ $? -eq 0 ]; then
@@ -167,7 +168,7 @@ build_docreader_image() {
         --build-arg TARGETARCH=$TARGETARCH \
         --build-arg APT_MIRROR=${APT_MIRROR:-} \
         -f docker/Dockerfile.docreader \
-        -t wechatopenai/weknora-docreader:latest \
+        -t jerryyouinshanhai/weknora-docreader:latest \
         .
     
     if [ $? -eq 0 ]; then
@@ -175,6 +176,21 @@ build_docreader_image() {
         return 0
     else
         log_error "文档读取器镜像构建失败"
+        return 1
+    fi
+}
+
+build_rerank_image() {
+    log_info "构建前端镜像 (weknora-rerank)..."
+    
+    cd "$PROJECT_ROOT"
+    docker build -f docker/Dockerfile.rerank -t jerryyouinshanhai/weknora-bgerank-rerank-bge-m3-arm64:1.0.1 .
+
+    if [ $? -eq 0 ]; then
+        log_success "镜像构建成功"
+        return 0
+    else
+        log_error "镜像构建失败"
         return 1
     fi
 }
@@ -188,7 +204,7 @@ build_frontend_image() {
     docker build \
         --platform $PLATFORM \
         -f frontend/Dockerfile \
-        -t wechatopenai/weknora-ui:latest \
+        -t jerryyouinshanhai/weknora-ui:$DOCKER_TAG \
         frontend/
     
     if [ $? -eq 0 ]; then

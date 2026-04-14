@@ -1,0 +1,149 @@
+{
+  "input": {
+    "source_type": "guideline",
+    "source_name": "中国干眼症诊疗专家共识（2024年）",
+    "text": "干眼症是由泪液质或量异常或泪液动力学异常引起的泪膜不稳定和/或眼表损害，可伴有眼部不适症状。根据泪液缺乏成分分为：水液缺乏型（ATD）、蒸发过强型（脂质异常）、混合型。轻度干眼以症状为主，可间歇使用人工泪液。中度干眼需增加人工泪液频率，可加用环孢素滴眼液抗炎治疗。重度干眼需积极治疗原发病，考虑使用自体血清滴眼液或佩戴治疗性隐形眼镜。诊断需结合症状评估、泪液分泌试验（Schirmer I试验，正常值≥10mm/5min）、泪膜破裂时间（BUT，正常值≥10秒）。干眼症危险因素包括：年龄增长、女性、长时间使用视频终端、自身免疫性疾病、屈光手术史等。"
+  },
+  "prompt_used": "05-source-specific.md 模板 5.1（临床指南抽取模板）",
+  "output": {
+    "guideline_info": {
+      "name": "中国干眼症诊疗专家共识",
+      "year": "2024"
+    },
+    "triplets": [
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "CAUSED_BY",
+        "tail": {"name": "泪液分泌异常", "type": "RiskFactor"},
+        "evidence": "由泪液质或量异常引起泪膜不稳定",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "CAUSED_BY",
+        "tail": {"name": "泪液动力学异常", "type": "RiskFactor"},
+        "evidence": "或泪液动力学异常",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "水液缺乏型干眼", "type": "Disease"},
+        "relation": "SUBCLASS_OF",
+        "tail": {"name": "干眼症", "type": "Disease"},
+        "evidence": "水液缺乏型（ATD）",
+        "confidence": "high",
+        "attributes": {"aliases": ["ATD", "水液缺乏型"]}
+      },
+      {
+        "head": {"name": "蒸发过强型干眼", "type": "Disease"},
+        "relation": "SUBCLASS_OF",
+        "tail": {"name": "干眼症", "type": "Disease"},
+        "evidence": "蒸发过强型（脂质异常）",
+        "confidence": "high",
+        "attributes": {"subtype_cause": "脂质异常"}
+      },
+      {
+        "head": {"name": "混合型干眼", "type": "Disease"},
+        "relation": "SUBCLASS_OF",
+        "tail": {"name": "干眼症", "type": "Disease"},
+        "evidence": "混合型",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "轻度干眼", "type": "Stage"},
+        "relation": "SUBCLASS_OF",
+        "tail": {"name": "干眼症", "type": "Disease"},
+        "evidence": "轻度干眼",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "中度干眼", "type": "Stage"},
+        "relation": "SUBCLASS_OF",
+        "tail": {"name": "干眼症", "type": "Disease"},
+        "evidence": "中度干眼",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "重度干眼", "type": "Stage"},
+        "relation": "SUBCLASS_OF",
+        "tail": {"name": "干眼症", "type": "Disease"},
+        "evidence": "重度干眼",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "DIAGNOSED_BY",
+        "tail": {"name": "泪液分泌试验（Schirmer I）", "type": "Examination"},
+        "evidence": "泪液分泌试验（Schirmer I试验，正常值≥10mm/5min）",
+        "confidence": "high",
+        "attributes": {"normal_range": "≥10mm/5min"}
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "DIAGNOSED_BY",
+        "tail": {"name": "泪膜破裂时间（BUT）", "type": "Examination"},
+        "evidence": "泪膜破裂时间（BUT，正常值≥10秒）",
+        "confidence": "high",
+        "attributes": {"normal_range": "≥10秒"}
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "人工泪液", "type": "Drug"},
+        "evidence": "轻度干眼以症状为主，可间歇使用人工泪液",
+        "confidence": "high",
+        "attributes": {"applicable_stage": "轻度"}
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "环孢素滴眼液", "type": "Drug"},
+        "evidence": "可加用环孢素滴眼液抗炎治疗",
+        "confidence": "high",
+        "attributes": {"applicable_stage": "中度", "mechanism": "抗炎治疗"}
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "TREATED_BY",
+        "tail": {"name": "自体血清滴眼液", "type": "Drug"},
+        "evidence": "重度干眼可考虑使用自体血清滴眼液",
+        "confidence": "high",
+        "attributes": {"applicable_stage": "重度"}
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "HAS_RISK_FACTOR",
+        "tail": {"name": "年龄增长", "type": "RiskFactor"},
+        "evidence": "危险因素包括：年龄增长",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "HAS_RISK_FACTOR",
+        "tail": {"name": "女性", "type": "RiskFactor"},
+        "evidence": "女性",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "HAS_RISK_FACTOR",
+        "tail": {"name": "长时间使用视频终端", "type": "RiskFactor"},
+        "evidence": "长时间使用视频终端",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "HAS_RISK_FACTOR",
+        "tail": {"name": "自身免疫性疾病", "type": "RiskFactor"},
+        "evidence": "自身免疫性疾病",
+        "confidence": "high"
+      },
+      {
+        "head": {"name": "干眼症", "type": "Disease"},
+        "relation": "HAS_RISK_FACTOR",
+        "tail": {"name": "屈光手术史", "type": "RiskFactor"},
+        "evidence": "屈光手术史",
+        "confidence": "high"
+      }
+    ]
+  }
+}
