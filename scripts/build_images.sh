@@ -12,7 +12,8 @@ NC='\033[0m' # 无颜色
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-DOCKER_TAG="dev-1.0.0-test"
+# 设置默认Docker标签,默认使用latest
+DOCKER_TAG="dev-0.3.6-test"
 # 版本信息
 VERSION="1.0.0"
 SCRIPT_NAME=$(basename "$0")
@@ -144,7 +145,7 @@ build_app_image() {
         --build-arg BUILD_TIME_ARG="$BUILD_TIME" \
         --build-arg GO_VERSION_ARG="$GO_VERSION" \
         -f docker/Dockerfile.app \
-        -t jerryyouinshanhai/weknora-app:$DOCKER_TAG \
+        -t wechatopenai/weknora-app:$DOCKER_TAG \
         .
     
     if [ $? -eq 0 ]; then
@@ -204,7 +205,7 @@ build_frontend_image() {
     docker build \
         --platform $PLATFORM \
         -f frontend/Dockerfile \
-        -t jerryyouinshanhai/weknora-ui:$DOCKER_TAG \
+        -t wechatopenai/weknora-ui:$DOCKER_TAG \
         frontend/
     
     if [ $? -eq 0 ]; then

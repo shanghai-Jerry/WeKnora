@@ -194,23 +194,38 @@ func (e *Extractor) Extract(ctx context.Context, content string) (*types.GraphDa
 	// Collect all answer chunks from the stream
 	var fullContent strings.Builder
 	var streamErr error
+	var responseTypes []string
 	for response := range responseChan {
+		responseTypes = append(responseTypes, string(response.ResponseType))
 		switch response.ResponseType {
 		case types.ResponseTypeAnswer:
 			fullContent.WriteString(response.Content)
 		case types.ResponseTypeError:
 			logger.Errorf(ctx, "stream error: %s", response.Content)
 			streamErr = fmt.Errorf("stream error: %s", response.Content)
-		// Skip thinking and other non-answer response types
+		case types.ResponseTypeThinking:
+			logger.Debugf(ctx, "[Extract] thinking: %s", response.Content)
+		case types.ResponseTypeComplete:
+			logger.Debugf(ctx, "[Extract] complete received")
 		default:
-			continue
+			logger.Debugf(ctx, "[Extract] unhandled response type: %s, content: %s", response.ResponseType, response.Content)
 		}
 	}
+	logger.Warnf(ctx, "[Extract] response types collected: %v", responseTypes)
 	if streamErr != nil {
 		return nil, streamErr
 	}
 
-	graph, err := e.formater.ParseGraph(ctx, fullContent.String())
+	fullContentString := fullContent.String()
+
+	logger.Warnf(ctx, "Extract content llm response: %s", fullContentString)
+
+	if fullContentString == "" {
+		logger.Errorf(ctx, "Extract: LLM returned empty response")
+		return nil, errors.New("LLM returned empty response")
+	}
+
+	graph, err := e.formater.ParseGraph(ctx, fullContentString)
 	if err != nil {
 		logger.Errorf(ctx, "failed to parse graph: %v", err)
 		return nil, err
