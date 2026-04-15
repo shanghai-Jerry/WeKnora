@@ -1,0 +1,12 @@
+# 提取实体图提示词变更日志
+
+extract_entity_graph_prompt_system_202604XX.yml
+
+借鉴GraphaRAG的实体抽取提示词
+
+extract_entity_graph_prompt_system_20260414.yml
+
+不同模型来交叉审核，给出修改建议后调整的
+
+extract_entity_graph_prompt_system_20260407.yml
+初稿
