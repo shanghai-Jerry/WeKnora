@@ -51,7 +51,7 @@ services:
 
   app:
     # image: jerryyouinshanhai/weknora-app:${WEKNORA_APP_VERSION:-latest}
-    image: wechatopenai/weknora-app:latest
+    image: wechatopenai/weknora-app:dev-0.3.6-test
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile.app
