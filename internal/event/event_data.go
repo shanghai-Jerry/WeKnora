@@ -217,3 +217,30 @@ type StopData struct {
 	MessageID string `json:"message_id"`
 	Reason    string `json:"reason,omitempty"` // Optional reason for stopping
 }
+
+// QueryRewrittenData represents query rewriting completion data
+type QueryRewrittenData struct {
+	OriginalQuery  string `json:"original_query"`
+	RewrittenQuery string `json:"rewritten_query"`
+}
+
+// RetrievalQueryData represents retrieval query data for frontend display
+type RetrievalQueryData struct {
+	Query         string `json:"query"`
+	RetrievalType string `json:"retrieval_type"` // "vector", "keyword", or "hybrid"
+}
+
+// QueryExpansionData represents query expansion data for frontend display
+type QueryExpansionData struct {
+	Expansions []string `json:"expansions"`
+}
+
+// VectorQueryData represents vector retrieval query data for frontend display
+type VectorQueryData struct {
+	Query string `json:"query"`
+}
+
+// KeywordQueryData represents keyword retrieval query data for frontend display
+type KeywordQueryData struct {
+	Query string `json:"query"`
+}

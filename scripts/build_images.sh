@@ -13,7 +13,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # 设置默认Docker标签,默认使用latest
-DOCKER_TAG="dev-0.3.6-test"
+DOCKER_TAG="dev-0.3.6.1"
 # 版本信息
 VERSION="1.0.0"
 SCRIPT_NAME=$(basename "$0")

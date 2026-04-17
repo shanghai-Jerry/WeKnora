@@ -699,6 +699,11 @@ func (s *sessionService) handleModelFallback(ctx context.Context, chatManage *ty
 		MaxCompletionTokens: chatManage.SummaryConfig.MaxCompletionTokens,
 		Thinking:            &thinking,
 	}
+	var promptContentPreview string
+	if len(promptContent) > 200 {
+		promptContentPreview = promptContent[:200]
+	}
+	logger.Debugf(ctx, "Streaming fallback response with prompt: %s", promptContentPreview)
 
 	// Start streaming response
 	userMsg := chat.Message{Role: "user", Content: promptContent}

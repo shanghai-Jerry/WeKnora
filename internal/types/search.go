@@ -98,6 +98,12 @@ type SearchResult struct {
 	Seq int `gorm:"column:seq"             json:"seq"`
 	// Score
 	Score float64 `                              json:"score"`
+	// KeywordScore is the BM25 keyword search score
+	KeywordScore float64 `                         json:"keyword_score,omitempty"`
+	// VectorScore is the embedding similarity score
+	VectorScore float64 `                        json:"vector_score,omitempty"`
+	// RerankScore is the LLM reranking score
+	RerankScore float64 `                       json:"rerank_score,omitempty"`
 	// Match type
 	MatchType MatchType `                              json:"match_type"`
 	// SubChunkIndex

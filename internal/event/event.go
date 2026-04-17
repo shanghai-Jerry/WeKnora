@@ -18,13 +18,17 @@ const (
 	EventQueryPreprocess EventType = "query.preprocess" // 查询预处理
 	EventQueryRewrite    EventType = "query.rewrite"    // 查询改写
 	EventQueryRewritten  EventType = "query.rewritten"  // 查询改写完成
+	EventQueryExpansion  EventType = "query.expansion"  // Query Expansion 扩展查询
 
 	// Retrieval events
-	EventRetrievalStart    EventType = "retrieval.start"    // 检索开始
-	EventRetrievalVector   EventType = "retrieval.vector"   // 向量检索
-	EventRetrievalKeyword  EventType = "retrieval.keyword"  // 关键词检索
-	EventRetrievalEntity   EventType = "retrieval.entity"   // 实体检索
-	EventRetrievalComplete EventType = "retrieval.complete" // 检索完成
+	EventRetrievalStart    EventType = "retrieval.start"         // 检索开始
+	EventRetrievalVector   EventType = "retrieval.vector"        // 向量检索
+	EventRetrievalKeyword  EventType = "retrieval.keyword"       // 关键词检索
+	EventRetrievalEntity   EventType = "retrieval.entity"        // 实体检索
+	EventRetrievalComplete EventType = "retrieval.complete"      // 检索完成
+	EventRetrievalQuery    EventType = "retrieval.query"         // 检索查询语句（用于前端展示）
+	EventRetrievalVectorQ  EventType = "retrieval.vector_query"  // 向量检索查询
+	EventRetrievalKeywordQ EventType = "retrieval.keyword_query" // 关键词检索查询
 
 	// Rerank events
 	EventRerankStart    EventType = "rerank.start"    // 排序开始

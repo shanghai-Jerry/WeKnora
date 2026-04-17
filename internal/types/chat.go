@@ -27,10 +27,10 @@ type FunctionCall struct {
 
 // ChatResponse chat response
 type ChatResponse struct {
-	Content      string       `json:"content"`
+	Content      string        `json:"content"`
 	ToolCalls    []LLMToolCall `json:"tool_calls,omitempty"`
-	FinishReason string       `json:"finish_reason,omitempty"`
-	Usage        TokenUsage   `json:"usage"`
+	FinishReason string        `json:"finish_reason,omitempty"`
+	Usage        TokenUsage    `json:"usage"`
 }
 
 // Response type
@@ -59,6 +59,16 @@ const (
 	ResponseTypeAgentQuery ResponseType = "agent_query"
 	// Complete response type (agent complete)
 	ResponseTypeComplete ResponseType = "complete"
+	// Query rewritten response type (for KnowledgeQA pipeline stages)
+	ResponseTypeQueryRewritten ResponseType = "query_rewritten"
+	// Retrieval query response type (for KnowledgeQA pipeline stages)
+	ResponseTypeRetrievalQuery ResponseType = "retrieval_query"
+	// Query expansion response type (for KnowledgeQA pipeline stages)
+	ResponseTypeQueryExpansion ResponseType = "query_expansion"
+	// Vector retrieval query response type (for KnowledgeQA pipeline stages)
+	ResponseTypeVectorQuery ResponseType = "vector_query"
+	// Keyword retrieval query response type (for KnowledgeQA pipeline stages)
+	ResponseTypeKeywordQuery ResponseType = "keyword_query"
 )
 
 // StreamResponse stream response

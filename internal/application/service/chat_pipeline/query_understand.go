@@ -178,6 +178,18 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 	// --- Parse structured output ---
 	p.parseOutput(chatManage, response.Content)
 
+	// --- Emit query rewritten event for frontend pipeline stages display ---
+	if chatManage.EventBus != nil && chatManage.RewriteQuery != chatManage.Query {
+		chatManage.EventBus.Emit(ctx, types.Event{
+			Type:      types.EventType(event.EventQueryRewritten),
+			SessionID: chatManage.SessionID,
+			Data: event.QueryRewrittenData{
+				OriginalQuery:  chatManage.Query,
+				RewrittenQuery: chatManage.RewriteQuery,
+			},
+		})
+	}
+
 	// Persist image description asynchronously — this DB write does not affect
 	// the current pipeline result, so it can run in the background.
 	if chatManage.ImageDescription != "" && chatManage.UserMessageID != "" {

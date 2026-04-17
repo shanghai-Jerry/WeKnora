@@ -24,7 +24,7 @@ services:
   
   frontend:
     # image: jerryyouinshanhai/weknora-ui:dev-1.0.1
-    image: wechatopenai/weknora-ui:dev-0.3.6-test
+    image: wechatopenai/weknora-ui:dev-0.3.6.1
     build:
        context: ./frontend
        args:
@@ -51,7 +51,7 @@ services:
 
   app:
     # image: jerryyouinshanhai/weknora-app:${WEKNORA_APP_VERSION:-latest}
-    image: wechatopenai/weknora-app:dev-0.3.6-test
+    image: wechatopenai/weknora-app:dev-0.3.6.1
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile.app

@@ -50,3 +50,9 @@ frontend/chrome-extension/
 WeKnora-Chrome-Extension
 # local files
 *local*
+cmd/pipline/task-pipeline.md
+cmd/pipline/main.go
+cmd/extractor_entity/main.go
+internal/application/service/chat_pipeline/extract_data/1.txt
+python-scripts/prompt/prompt-tuning.md
+python-scripts/prompt/graphrag/extract_entity_demo.txt

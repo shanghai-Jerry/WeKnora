@@ -27,6 +27,20 @@
               <span class="result-index">#{{ result.result_index }}</span>
               <span class="knowledge-title">{{ result.knowledge_title }}</span>
             </div>
+            <div class="result-scores" v-if="showScores(result)">
+              <span v-if="result.keyword_score != null" class="score-badge keyword" :title="$t('chat.scoreKeyword')">
+                K:{{ formatScore(result.keyword_score) }}
+              </span>
+              <span v-if="result.vector_score != null" class="score-badge vector" :title="$t('chat.scoreVector')">
+                V:{{ formatScore(result.vector_score) }}
+              </span>
+              <span v-if="result.rerank_score != null" class="score-badge rerank" :title="$t('chat.scoreRerank')">
+                R:{{ formatScore(result.rerank_score) }}
+              </span>
+              <span v-else-if="result.base_score != null" class="score-badge rerank" :title="$t('chat.scoreBase')">
+                B:{{ formatScore(result.base_score) }}
+              </span>
+            </div>
           </div>
         </t-popup>
       </div>
@@ -115,6 +129,16 @@ const getRelevanceLabel = (level: RelevanceLevel): string => {
   };
   return labelMap[level] || level;
 };
+
+const showScores = (result: SearchResultItem): boolean => {
+  return result.keyword_score != null || result.vector_score != null || 
+         result.rerank_score != null || result.base_score != null;
+};
+
+const formatScore = (score: number | undefined): string => {
+  if (score == null) return '-';
+  return score.toFixed(2);
+};
 </script>
 
 <style lang="less" scoped>
@@ -188,6 +212,36 @@ const getRelevanceLabel = (level: RelevanceLevel): string => {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.result-scores {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.score-badge {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 500;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+
+  &.keyword {
+    background: #e6f7ff;
+    color: #1890ff;
+  }
+
+  &.vector {
+    background: #f6ffed;
+    color: #52c41a;
+  }
+
+  &.rerank {
+    background: #fff7e6;
+    color: #fa8c16;
+  }
 }
 
 // Popup overlay styles

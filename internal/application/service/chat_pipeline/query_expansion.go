@@ -7,6 +7,7 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -18,6 +19,17 @@ func (p *PluginSearch) runQueryExpansion(ctx context.Context, chatManage *types.
 		"threshold": chatManage.EmbeddingTopK,
 	})
 	expansions := p.expandQueries(ctx, chatManage)
+
+	// Emit query expansion event for frontend pipeline stages display
+	if chatManage.EventBus != nil && len(expansions) > 0 {
+		chatManage.EventBus.Emit(ctx, types.Event{
+			Type:      types.EventType(event.EventQueryExpansion),
+			SessionID: chatManage.SessionID,
+			Data: event.QueryExpansionData{
+				Expansions: expansions,
+			},
+		})
+	}
 	if len(expansions) == 0 {
 		return nil
 	}
