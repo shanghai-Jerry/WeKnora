@@ -428,6 +428,8 @@ func (h *AgentStreamHandler) handleSessionTitle(ctx context.Context, evt event.E
 	bgCtx := context.Background()
 
 	// Append title event to stream
+	logger.GetLogger(h.ctx).Infof("handleSessionTitle: appending title event for session=%s, message=%s, title=%s",
+		h.sessionID, h.assistantMessageID, data.Title)
 	if err := h.streamManager.AppendEvent(bgCtx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
 		ID:        evt.ID,
 		Type:      types.ResponseTypeSessionTitle,
@@ -440,6 +442,8 @@ func (h *AgentStreamHandler) handleSessionTitle(ctx context.Context, evt event.E
 		},
 	}); err != nil {
 		logger.GetLogger(h.ctx).Warn("Append session title event to stream failed (stream may have ended)", "error", err)
+	} else {
+		logger.GetLogger(h.ctx).Infof("handleSessionTitle: title event appended successfully for session=%s", h.sessionID)
 	}
 
 	return nil

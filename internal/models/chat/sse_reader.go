@@ -30,14 +30,14 @@ func NewSSEReader(reader io.Reader) *SSEReader {
 func (r *SSEReader) ReadEvent() (*SSEEvent, error) {
 	for r.scanner.Scan() {
 		line := r.scanner.Text()
-
+		// logger.Debugf(context.Background(), "[LLM Stream] ReadEvent: %s", line)
 		// 空行，跳过
 		if line == "" {
 			continue
 		}
 
 		// 检查是否为结束标记
-		if line == "data: [DONE]" {
+		if line == "data: [DONE]" || line == "data:[DONE]" {
 			return &SSEEvent{Done: true}, nil
 		}
 
@@ -46,13 +46,20 @@ func (r *SSEReader) ReadEvent() (*SSEEvent, error) {
 			jsonStr := line[6:]
 			return &SSEEvent{Data: []byte(jsonStr)}, nil
 		}
+		if strings.HasPrefix(line, "data:") {
+			jsonStr := line[5:]
+			return &SSEEvent{Data: []byte(jsonStr)}, nil
+		}
 
 		// 其他行（如 event:, id: 等）跳过
 	}
 
+	// logger.Debugf(context.Background(), "[LLM Stream] ReadEvent scanner error: %v", r.scanner.Err())
 	if err := r.scanner.Err(); err != nil {
 		return nil, err
 	}
 
+	// logger.Debugf(context.Background(), "[LLM Stream] ReadEvent scanner completed")
+	// Scanner completed without error - return EOF
 	return nil, io.EOF
 }

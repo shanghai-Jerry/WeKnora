@@ -416,17 +416,19 @@ func (c *RemoteAPIChat) ChatStream(ctx context.Context, messages []Message, opts
 	if c.requestCustomizer != nil {
 		customReq, useRawHTTP := c.requestCustomizer(&req, opts, true)
 		if useRawHTTP && customReq != nil {
+			logger.Infof(ctx, "[LLM Stream] ChatStream model=%s, endpoint=%s, requestCustomizer", c.modelName, customEndpoint)
 			return c.chatStreamWithRawHTTP(ctx, customEndpoint, customReq)
 		}
 	}
 	// 使用自定义请求地址
 	if customEndpoint != "" {
+		logger.Infof(ctx, "[LLM Stream] ChatStream model=%s, customEndpoint=%s", c.modelName, customEndpoint)
 		return c.chatStreamWithRawHTTP(ctx, customEndpoint, &req)
 	}
 	c.logRequest(ctx, req, true)
 
 	streamChan := make(chan types.StreamResponse)
-
+	logger.Infof(ctx, "[LLM Stream] CreateChatCompletionStream model=%s, messages=%d", c.modelName, len(messages))
 	stream, err := c.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		if isMultimodalNotSupportedError(err) {
@@ -435,12 +437,13 @@ func (c *RemoteAPIChat) ChatStream(ctx context.Context, messages []Message, opts
 			req = c.BuildChatCompletionRequest(cleaned, opts, true)
 			stream, err = c.client.CreateChatCompletionStream(ctx, req)
 		}
+		logger.Errorf(ctx, "[LLM Stream] CreateChatCompletionStream failed model=%s, messages=%d, error=%v", c.modelName, len(messages), err)
 		if err != nil {
 			close(streamChan)
 			return nil, fmt.Errorf("create chat completion stream: %w", err)
 		}
 	}
-
+	logger.Infof(ctx, "[LLM Stream] processStream model=%s, messages=%d", c.modelName, len(messages))
 	go c.processStream(ctx, stream, streamChan)
 
 	return streamChan, nil
@@ -453,11 +456,13 @@ func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint stri
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	logger.Infof(ctx, "[LLM Stream] model=%s", c.modelName)
+	logger.Infof(ctx, "[LLM Stream] model=%s, endpoint=%s, customReq=%v", c.modelName, endpoint, string(jsonData))
 
 	if endpoint == "" {
 		endpoint = c.baseURL + "/chat/completions"
 	}
+	logger.Infof(ctx, "[LLM Stream] model=%s, endpoint=%s", c.modelName, endpoint)
+
 	if err := secutils.ValidateURLForSSRF(endpoint); err != nil {
 		return nil, fmt.Errorf("endpoint SSRF check failed: %w", err)
 	}
@@ -475,6 +480,8 @@ func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint stri
 		return nil, fmt.Errorf("send request: %w", err)
 	}
 
+	logger.Infof(ctx, "[LLM Stream] response status=%d, content_type=%s", resp.StatusCode, resp.Header.Get("Content-Type"))
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -483,6 +490,7 @@ func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint stri
 
 	streamChan := make(chan types.StreamResponse)
 
+	logger.Infof(ctx, "[LLM Stream] processRawHTTPStream go inside model=%s, endpoint=%s", c.modelName, endpoint)
 	go c.processRawHTTPStream(ctx, resp, streamChan)
 
 	return streamChan, nil
@@ -520,7 +528,7 @@ func (c *RemoteAPIChat) processStream(ctx context.Context, stream *openai.ChatCo
 			}
 			return
 		}
-
+		logger.Infof(ctx, "[LLM Stream] Recv model=%s", c.modelName)
 		if response.Usage != nil {
 			state.usage = &types.TokenUsage{
 				PromptTokens:     response.Usage.PromptTokens,
@@ -530,6 +538,7 @@ func (c *RemoteAPIChat) processStream(ctx context.Context, stream *openai.ChatCo
 		}
 
 		if len(response.Choices) > 0 {
+			logger.Infof(ctx, "[LLM Stream] processStreamDelta model=%s, response.Choices=%d", c.modelName, len(response.Choices))
 			c.processStreamDelta(ctx, &response.Choices[0], state, streamChan, response.Choices[0].Delta.ReasoningContent)
 		}
 	}
@@ -543,6 +552,8 @@ func (c *RemoteAPIChat) processRawHTTPStream(ctx context.Context, resp *http.Res
 	state := newStreamState()
 	reader := NewSSEReader(resp.Body)
 
+	logger.Infof(ctx, "[LLM Stream] processRawHTTPStream started, model=%s", c.modelName)
+
 	for {
 		event, err := reader.ReadEvent()
 		if err != nil {
@@ -552,6 +563,7 @@ func (c *RemoteAPIChat) processRawHTTPStream(ctx context.Context, resp *http.Res
 					logger.Infof(ctx, "[LLM Usage] model=%s, prompt_tokens=%d, completion_tokens=%d, total_tokens=%d",
 						c.modelName, state.usage.PromptTokens, state.usage.CompletionTokens, state.usage.TotalTokens)
 				}
+				logger.Infof(ctx, "[LLM Stream] processRawHTTPStream io.EOF, model=%s", c.modelName)
 				streamChan <- types.StreamResponse{
 					ResponseType: types.ResponseTypeAnswer,
 					Content:      "",
@@ -569,7 +581,7 @@ func (c *RemoteAPIChat) processRawHTTPStream(ctx context.Context, resp *http.Res
 			}
 			return
 		}
-
+		// logger.Debugf(ctx, "[LLM Stream] processRawHTTPStream model=%s", c.modelName)
 		if event == nil {
 			continue
 		}
@@ -579,6 +591,7 @@ func (c *RemoteAPIChat) processRawHTTPStream(ctx context.Context, resp *http.Res
 				logger.Infof(ctx, "[LLM Usage] model=%s, prompt_tokens=%d, completion_tokens=%d, total_tokens=%d",
 					c.modelName, state.usage.PromptTokens, state.usage.CompletionTokens, state.usage.TotalTokens)
 			}
+			logger.Infof(ctx, "[LLM Stream] processRawHTTPStream model=%s, event.Done=%v", c.modelName, event.Done)
 			streamChan <- types.StreamResponse{
 				ResponseType: types.ResponseTypeAnswer,
 				Content:      "",
@@ -592,6 +605,8 @@ func (c *RemoteAPIChat) processRawHTTPStream(ctx context.Context, resp *http.Res
 		if event.Data == nil {
 			continue
 		}
+
+		// logger.Debugf(ctx, "[LLM Stream] processRawHTTPStream model=%s, event.Data=%s", c.modelName, event.Data)
 
 		// 使用局部结构体进行一次性解析，同时捕捉标准字段和 vLLM 的 reasoning 字段，避免性能损失
 		var streamResp struct {
