@@ -67,6 +67,12 @@ func (h *AgentStreamHandler) Subscribe() {
 	h.eventBus.On(event.EventError, h.handleError)
 	h.eventBus.On(event.EventSessionTitle, h.handleSessionTitle)
 	h.eventBus.On(event.EventAgentComplete, h.handleComplete)
+	// KnowledgeQA pipeline stage events
+	h.eventBus.On(event.EventQueryRewritten, h.handleQueryRewritten)
+	h.eventBus.On(event.EventRetrievalQuery, h.handleRetrievalQuery)
+	h.eventBus.On(event.EventQueryExpansion, h.handleQueryExpansion)
+	h.eventBus.On(event.EventRetrievalVectorQ, h.handleVectorQuery)
+	h.eventBus.On(event.EventRetrievalKeywordQ, h.handleKeywordQuery)
 }
 
 // handleThought handles agent thought events
@@ -422,6 +428,8 @@ func (h *AgentStreamHandler) handleSessionTitle(ctx context.Context, evt event.E
 	bgCtx := context.Background()
 
 	// Append title event to stream
+	logger.GetLogger(h.ctx).Infof("handleSessionTitle: appending title event for session=%s, message=%s, title=%s",
+		h.sessionID, h.assistantMessageID, data.Title)
 	if err := h.streamManager.AppendEvent(bgCtx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
 		ID:        evt.ID,
 		Type:      types.ResponseTypeSessionTitle,
@@ -434,6 +442,8 @@ func (h *AgentStreamHandler) handleSessionTitle(ctx context.Context, evt event.E
 		},
 	}); err != nil {
 		logger.GetLogger(h.ctx).Warn("Append session title event to stream failed (stream may have ended)", "error", err)
+	} else {
+		logger.GetLogger(h.ctx).Infof("handleSessionTitle: title event appended successfully for session=%s", h.sessionID)
 	}
 
 	return nil
@@ -529,6 +539,128 @@ func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event
 		},
 	}); err != nil {
 		logger.GetLogger(h.ctx).Errorf("Append complete event to stream failed: %v", err)
+	}
+
+	return nil
+}
+
+// handleQueryRewritten handles query rewriting completion events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleQueryRewritten(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.QueryRewrittenData)
+	if !ok {
+		return nil
+	}
+
+	// Append query_rewritten event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeQueryRewritten,
+		Content:   data.RewrittenQuery,
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"original_query":  data.OriginalQuery,
+			"rewritten_query": data.RewrittenQuery,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append query_rewritten event to stream failed", "error", err)
+	}
+
+	return nil
+}
+
+// handleRetrievalQuery handles retrieval query events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleRetrievalQuery(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.RetrievalQueryData)
+	if !ok {
+		return nil
+	}
+
+	// Append retrieval_query event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeRetrievalQuery,
+		Content:   data.Query,
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"query":          data.Query,
+			"retrieval_type": data.RetrievalType,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append retrieval_query event to stream failed", "error", err)
+	}
+
+	return nil
+}
+
+// handleQueryExpansion handles query expansion events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleQueryExpansion(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.QueryExpansionData)
+	if !ok {
+		return nil
+	}
+
+	// Append query_expansion event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeQueryExpansion,
+		Content:   "",
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"expansions": data.Expansions,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append query_expansion event to stream failed", "error", err)
+	}
+
+	return nil
+}
+
+// handleVectorQuery handles vector retrieval query events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleVectorQuery(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.VectorQueryData)
+	if !ok {
+		return nil
+	}
+
+	// Append vector_query event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeVectorQuery,
+		Content:   data.Query,
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"query": data.Query,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append vector_query event to stream failed", "error", err)
+	}
+
+	return nil
+}
+
+// handleKeywordQuery handles keyword retrieval query events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleKeywordQuery(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.KeywordQueryData)
+	if !ok {
+		return nil
+	}
+
+	// Append keyword_query event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeKeywordQuery,
+		Content:   data.Query,
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"query": data.Query,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append keyword_query event to stream failed", "error", err)
 	}
 
 	return nil

@@ -152,9 +152,19 @@ func (c *ChatManage) Clone() *ChatManage {
 			}
 		}
 	}
-	// Deep-copy entity to avoid concurrent read/write on shared slice fields
+	// Deep-copy entity
 	entity := make([]string, len(c.Entity))
 	copy(entity, c.Entity)
+
+	// Deep-copy entityKBIDs
+	entityKBIDs := make([]string, len(c.EntityKBIDs))
+	copy(entityKBIDs, c.EntityKBIDs)
+
+	// Deep-copy entityKnowledge
+	entityKnowledge := make(map[string]string)
+	for k, v := range c.EntityKnowledge {
+		entityKnowledge[k] = v
+	}
 
 	return &ChatManage{
 		PipelineRequest: PipelineRequest{
@@ -203,6 +213,8 @@ func (c *ChatManage) Clone() *ChatManage {
 			SystemPromptOverride: c.SystemPromptOverride,
 			RenderedContexts:     c.RenderedContexts,
 			Entity:               entity,
+			EntityKBIDs:          entityKBIDs,
+			EntityKnowledge:      entityKnowledge,
 		},
 	}
 }

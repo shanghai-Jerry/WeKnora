@@ -32,6 +32,10 @@ export interface SearchResultItem {
     knowledge_id: string;
     knowledge_title: string;
     match_type: string;
+    keyword_score?: number;
+    vector_score?: number;
+    rerank_score?: number;
+    base_score?: number;
 }
 
 // Chunk item

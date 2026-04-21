@@ -57,6 +57,11 @@
             </div>
             <div v-if="isImgLoading" class="img_loading"><t-loading size="small"></t-loading><span>{{ $t('common.loading') }}</span></div>
         </div>
+        <!-- Pipeline Stages Display (non-Agent mode only) -->
+        <PipelineStagesDisplay
+            v-if="!session.isAgentMode && session.pipeline_stages"
+            :pipeline-stages="session.pipeline_stages"
+        ></PipelineStagesDisplay>
         <picturePreview :reviewImg="reviewImg" :reviewUrl="reviewUrl" @closePreImg="closePreImg"></picturePreview>
     </div>
 </template>
@@ -67,6 +72,7 @@ import docInfo from './docInfo.vue';
 import graphInfo from './graphInfo.vue';
 import deepThink from './deepThink.vue';
 import AgentStreamDisplay from './AgentStreamDisplay.vue';
+import PipelineStagesDisplay from './PipelineStagesDisplay.vue';
 import picturePreview from '@/components/picture-preview.vue';
 import { sanitizeHTML, safeMarkdownToHTML, createSafeImage, isValidImageURL, hydrateProtectedFileImages } from '@/utils/security';
 import { useI18n } from 'vue-i18n';

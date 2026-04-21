@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -144,6 +145,17 @@ func (p *PluginSearchParallel) OnEvent(ctx context.Context,
 				})
 				if err == ErrSearchNothing {
 					return nil
+				}
+				// Emit graph_data event for frontend display
+				if chatManage.EventBus != nil && (len(entityCM.GraphResult.Node) > 0 || len(entityCM.GraphResult.Relation) > 0) {
+					logger.Warnf(ctx, "GraphData Emit result: %d nodes, %d relations", len(entityCM.GraphResult.Node), len(entityCM.GraphResult.Relation))
+					_ = chatManage.EventBus.Emit(ctx, types.Event{
+						Type:      types.EventType(event.EventAgentGraphData),
+						SessionID: chatManage.SessionID,
+						Data: event.AgentGraphData{
+							Graph: entityCM.GraphResult,
+						},
+					})
 				}
 				return err
 			},

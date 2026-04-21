@@ -78,7 +78,14 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 	// Initiate streaming chat model call with independent context
 	pipelineInfo(ctx, "Stream", "model_call", map[string]interface{}{
 		"chat_model": chatManage.ChatModelID,
+		"session_id": chatManage.SessionID,
 	})
+
+	pipelineWarn(ctx, "Stream", "response", map[string]interface{}{
+		"session_id":        chatManage.SessionID,
+		"chatMessageLength": len(chatMessages),
+	})
+
 	responseChan, err := chatModel.ChatStream(ctx, chatMessages, opt)
 	if err != nil {
 		pipelineError(ctx, "Stream", "model_call", map[string]interface{}{
@@ -147,6 +154,8 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 					})
 					return
 				}
+
+				// DEBUG: AntAngleMed
 
 				if response.ResponseType == types.ResponseTypeError {
 					pipelineError(ctx, "Stream", "stream_error", map[string]interface{}{

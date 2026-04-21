@@ -601,7 +601,8 @@ onChunk((data) => {
                 thinkContent: '',
                 thinking: false,
                 is_completed: false,
-                knowledge_references: []
+                knowledge_references: [],
+                pipeline_stages: {}
             };
             messagesList.push(existingMessage);
             loading.value = false; // 消息已创建，关闭 loading
@@ -610,6 +611,74 @@ onChunk((data) => {
         
         existingMessage.knowledge_references = data.knowledge_references || data.data?.references || [];
         console.log('[References] Saved to message, count:', existingMessage.knowledge_references.length);
+        return;
+    }
+    
+    // 处理 pipeline stages 事件 - Query Rewriting, Retrieval Query, Query Expansion
+    // 仅在非 Agent 模式下处理
+    if (!isCurrentlyAgentMode && (
+        data.response_type === 'query_rewritten' ||
+        data.response_type === 'retrieval_query' ||
+        data.response_type === 'query_expansion' ||
+        data.response_type === 'vector_query' ||
+        data.response_type === 'keyword_query'
+    )) {
+        // 首先尝试通过 request_id 或 id 查找消息
+        let existingMessage = messagesList.findLast((item) => item.request_id === data.id || item.id === data.id);
+        
+        // 如果消息不存在，创建一个新的 assistant 消息
+        if (!existingMessage) {
+            existingMessage = {
+                id: data.id,
+                request_id: data.id,
+                role: 'assistant',
+                content: '',
+                showThink: false,
+                thinkContent: '',
+                thinking: false,
+                is_completed: false,
+                isAgentMode: false,
+                knowledge_references: [],
+                pipeline_stages: {}
+            };
+            messagesList.push(existingMessage);
+            loading.value = false;
+            scrollToBottom();
+            console.log('[Pipeline] Created new message for pipeline stages, id:', data.id);
+        }
+        
+        // Initialize pipeline_stages if not exists
+        if (!existingMessage.pipeline_stages) {
+            existingMessage.pipeline_stages = {};
+        }
+        
+        // Update pipeline stages based on event type
+        if (data.response_type === 'query_rewritten') {
+            existingMessage.pipeline_stages.queryRewritten = {
+                originalQuery: data.data?.original_query || '',
+                rewrittenQuery: data.content || data.data?.rewritten_query || ''
+            };
+            console.log('[Pipeline] Query Rewritten:', existingMessage.pipeline_stages.queryRewritten);
+        } else if (data.response_type === 'retrieval_query') {
+            existingMessage.pipeline_stages.retrievalQuery = data.content || data.data?.query || '';
+            console.log('[Pipeline] Retrieval Query:', existingMessage.pipeline_stages.retrievalQuery);
+        } else if (data.response_type === 'vector_query') {
+            existingMessage.pipeline_stages.vectorQuery = data.content || data.data?.query || '';
+            console.log('[Pipeline] Vector Query:', existingMessage.pipeline_stages.vectorQuery);
+        } else if (data.response_type === 'keyword_query') {
+            existingMessage.pipeline_stages.keywordQuery = data.content || data.data?.query || '';
+            console.log('[Pipeline] Keyword Query:', existingMessage.pipeline_stages.keywordQuery);
+        } else if (data.response_type === 'query_expansion') {
+            existingMessage.pipeline_stages.expansions = data.data?.expansions || [];
+            console.log('[Pipeline] Query Expansion:', existingMessage.pipeline_stages.expansions);
+        }
+        
+        // Force reactivity update
+        const msgIndex = messagesList.findIndex((item) => item === existingMessage);
+        if (msgIndex !== -1) {
+            messagesList[msgIndex] = { ...existingMessage };
+        }
+        
         return;
     }
     
@@ -635,7 +704,8 @@ onChunk((data) => {
                 thinking: false,
                 is_completed: false,
                 knowledge_references: [],
-                graph_data: null
+                graph_data: null,
+                pipeline_stages: {}
             };
             messagesList.push(existingMessage);
             loading.value = false;

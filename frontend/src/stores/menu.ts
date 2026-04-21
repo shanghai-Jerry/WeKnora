@@ -29,6 +29,7 @@ export const useMenuStore = defineStore('menuStore', () => {
       childrenPath: 'chat',
       children: createMenuChildren()
     },
+    { title: '模型对比', titleKey: 'menu.modelCompare', icon: 'chart', path: 'model-compare' },
     { title: '', titleKey: 'menu.settings', icon: 'setting', path: 'settings' },
     { title: '', titleKey: 'menu.logout', icon: 'logout', path: 'logout' }
   ])

@@ -49,6 +49,7 @@ func (s *sessionService) KnowledgeQA(
 		MaxCompletionTokens: s.cfg.Conversation.Summary.MaxCompletionTokens,
 		Thinking:            s.cfg.Conversation.Summary.Thinking,
 	}
+	logger.Debugf(ctx, "Summary config: %v", summaryConfig)
 	fallbackStrategy := types.FallbackStrategy(s.cfg.Conversation.FallbackStrategy)
 	if fallbackStrategy == "" {
 		fallbackStrategy = types.FallbackStrategyFixed
@@ -699,12 +700,18 @@ func (s *sessionService) handleModelFallback(ctx context.Context, chatManage *ty
 		MaxCompletionTokens: chatManage.SummaryConfig.MaxCompletionTokens,
 		Thinking:            &thinking,
 	}
+	var promptContentPreview string
+	if len(promptContent) > 200 {
+		promptContentPreview = promptContent[:200]
+	}
+	logger.Debugf(ctx, "Streaming fallback response with prompt: %s", promptContentPreview)
 
 	// Start streaming response
 	userMsg := chat.Message{Role: "user", Content: promptContent}
 	if chatManage.ChatModelSupportsVision && len(chatManage.Images) > 0 {
 		userMsg.Images = chatManage.Images
 	}
+	logger.Debugf(ctx, "User message: %v", userMsg)
 	responseChan, err := chatModel.ChatStream(ctx, []chat.Message{userMsg}, opt)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to start streaming fallback response: %v, falling back to fixed response", err)
@@ -754,6 +761,7 @@ func (s *sessionService) consumeFallbackStream(
 	streamCompleted := false
 
 	for response := range responseChan {
+		// logger.Debugf(ctx, "[consumeFallbackStream] Received response: %v", response)
 		// Emit event for each answer chunk
 		if response.ResponseType == types.ResponseTypeAnswer {
 			finalContent += response.Content

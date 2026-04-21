@@ -28,7 +28,7 @@
           </div>
           <div class="item-main">
             <span class="name">{{ item.name }}</span>
-            <span class="count">({{ item.count || 0 }})</span>
+            <span class="count">({{ item.kbType === 'faq' ? (item.chunk_count || 0) : (item.knowledge_count || 0) }})</span>
           </div>
         </div>
         <template #content>

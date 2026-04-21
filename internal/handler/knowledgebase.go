@@ -380,6 +380,13 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 		}
 	}
 
+	// Fill knowledge counts (knowledge_count, chunk_count) for all knowledge bases
+	for _, kb := range kbs {
+		if err := h.service.FillKnowledgeBaseCounts(ctx, kb); err != nil {
+			logger.Warnf(ctx, "Failed to fill KB counts for %s: %v", kb.ID, err)
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    kbs,

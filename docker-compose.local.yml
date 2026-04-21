@@ -24,7 +24,7 @@ services:
   
   frontend:
     # image: jerryyouinshanhai/weknora-ui:dev-1.0.1
-    image: wechatopenai/weknora-ui:latest
+    image: wechatopenai/weknora-ui:${WEKNORA_FRONTEND_VERSION:-latest}
     build:
        context: ./frontend
        args:
@@ -51,7 +51,7 @@ services:
 
   app:
     # image: jerryyouinshanhai/weknora-app:${WEKNORA_APP_VERSION:-latest}
-    image: wechatopenai/weknora-app:dev-0.3.6-test
+    image: wechatopenai/weknora-app:${WEKNORA_APP_VERSION:-latest}
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile.app
@@ -226,6 +226,22 @@ services:
     restart: unless-stopped
     # 添加停机时的优雅退出时间
     stop_grace_period: 1m
+
+  pgweb:
+    image: sourcediviner/pgweb:latest
+    container_name: WeKnora-pgweb
+    ports:
+      - "${PGWEB_PORT:-8085}:8085"
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
+      PGWEB_VARIABLES_ALLOW_EXEC: "true"
+      PGWEB_ALLOW_SAVE: "true"
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7.0-alpine

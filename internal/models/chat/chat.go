@@ -28,6 +28,7 @@ type FunctionDef struct {
 type ChatOptions struct {
 	Temperature         float64         `json:"temperature"`                   // 温度参数
 	TopP                float64         `json:"top_p"`                         // Top P 参数
+	TopK                int             `json:"top_k"`                         // Top K 参数
 	Seed                int             `json:"seed"`                          // 随机种子
 	MaxTokens           int             `json:"max_tokens"`                    // 最大 token 数
 	MaxCompletionTokens int             `json:"max_completion_tokens"`         // 最大完成 token 数

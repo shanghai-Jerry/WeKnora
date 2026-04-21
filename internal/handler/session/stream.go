@@ -393,32 +393,34 @@ func (h *Handler) handleAgentEventsForSSE(
 			if streamCompleted {
 				if waitForTitle && !titleReceived {
 					log.Infof("Stream completed for session=%s, message=%s, waiting for title event", sessionID, assistantMessageID)
-					// Wait up to 3 seconds for title event after completion
-					titleTimeout := time.After(3 * time.Second)
+					// Wait up to 10 seconds for title event after completion
+					titleTimeout := time.After(10 * time.Second)
 				titleWaitLoop:
 					for {
 						select {
 						case <-titleTimeout:
-							log.Info("Title wait timeout, closing stream")
+							logger.Warnf(ctx, "Title wait timeout, closing stream session=%s, message=%s", sessionID, assistantMessageID)
 							break titleWaitLoop
 						case <-c.Request.Context().Done():
-							log.Info("Connection closed while waiting for title")
+							logger.Warnf(ctx, "Connection closed while waiting for title session=%s, message=%s", sessionID, assistantMessageID)
 							return
 						default:
 							// Check for new events (title event)
 							events, newOff, err := h.streamManager.GetEvents(c.Request.Context(), sessionID, assistantMessageID, lastOffset)
 							if err != nil {
-								log.Warnf("Error getting events while waiting for title: %v", err)
+								logger.Warnf(ctx, "Error getting events while waiting for title: %v", err)
 								break titleWaitLoop
 							}
+							// Log received events
 							if len(events) > 0 {
+								logger.Debugf(ctx, "Received events while waiting for title, event count: %v", len(events))
 								for _, evt := range events {
 									response := buildStreamResponse(evt, requestID)
 									c.SSEvent("message", response)
 									c.Writer.Flush()
 									// If we got the title, we can exit
 									if evt.Type == types.ResponseTypeSessionTitle {
-										log.Infof("Title event received: %s", evt.Content)
+										logger.Infof(ctx, "Title event received: %s", evt.Content)
 										break titleWaitLoop
 									}
 								}
@@ -430,7 +432,7 @@ func (h *Handler) handleAgentEventsForSSE(
 						}
 					}
 				} else {
-					log.Infof("Stream completed for session=%s, message=%s", sessionID, assistantMessageID)
+					logger.Infof(ctx, "Stream completed for session=%s, message=%s", sessionID, assistantMessageID)
 				}
 				sendCompletionEvent(c, requestID)
 				return

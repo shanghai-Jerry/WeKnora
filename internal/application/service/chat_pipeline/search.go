@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/searchutil"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -15,15 +16,15 @@ import (
 
 // PluginSearch implements search functionality for chat pipeline
 type PluginSearch struct {
-	knowledgeBaseService      interfaces.KnowledgeBaseService
-	knowledgeService          interfaces.KnowledgeService
-	chunkService              interfaces.ChunkService
-	config                    *config.Config
-	webSearchService          interfaces.WebSearchService
-	tenantService             interfaces.TenantService
-	sessionService            interfaces.SessionService
-	webSearchStateService     interfaces.WebSearchStateService
-	webSearchProviderRepo     interfaces.WebSearchProviderRepository
+	knowledgeBaseService  interfaces.KnowledgeBaseService
+	knowledgeService      interfaces.KnowledgeService
+	chunkService          interfaces.ChunkService
+	config                *config.Config
+	webSearchService      interfaces.WebSearchService
+	tenantService         interfaces.TenantService
+	sessionService        interfaces.SessionService
+	webSearchStateService interfaces.WebSearchStateService
+	webSearchProviderRepo interfaces.WebSearchProviderRepository
 }
 
 func NewPluginSearch(eventManager *EventManager,
@@ -85,6 +86,36 @@ func (p *PluginSearch) OnEvent(ctx context.Context,
 		"vector_threshold":  chatManage.VectorThreshold,
 		"keyword_threshold": chatManage.KeywordThreshold,
 	})
+
+	// Emit retrieval query events for frontend pipeline stages display
+	if chatManage.EventBus != nil {
+		// Unified retrieval query event
+		chatManage.EventBus.Emit(ctx, types.Event{
+			Type:      types.EventType(event.EventRetrievalQuery),
+			SessionID: chatManage.SessionID,
+			Data: event.RetrievalQueryData{
+				Query:         chatManage.RewriteQuery,
+				RetrievalType: "hybrid",
+			},
+		})
+		// Separate vector query event
+		chatManage.EventBus.Emit(ctx, types.Event{
+			Type:      types.EventType(event.EventRetrievalVectorQ),
+			SessionID: chatManage.SessionID,
+			Data: event.VectorQueryData{
+				Query: chatManage.RewriteQuery,
+			},
+		})
+		// Separate keyword query event
+		chatManage.EventBus.Emit(ctx, types.Event{
+			Type:      types.EventType(event.EventRetrievalKeywordQ),
+			SessionID: chatManage.SessionID,
+			Data: event.KeywordQueryData{
+				Query: chatManage.RewriteQuery,
+			},
+		})
+	}
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	allResults := make([]*types.SearchResult, 0)

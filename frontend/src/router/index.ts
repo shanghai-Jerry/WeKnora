@@ -95,6 +95,12 @@ const router = createRouter({
           meta: { requiresInit: true, requiresAuth: true }
         },
         {
+          path: "model-compare",
+          name: "modelCompare",
+          component: () => import("../views/chat/ModelCompare.vue"),
+          meta: { requiresInit: true, requiresAuth: true }
+        },
+        {
           path: "organizations",
           name: "organizationList",
           component: () => import("../views/organization/OrganizationList.vue"),
