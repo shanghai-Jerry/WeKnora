@@ -105,17 +105,25 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 		})
 		return next()
 	}
-
-	userPrompt := chatManage.Query
-	promptContent = strings.ReplaceAll(promptContent, "{{original_query}}", chatManage.RewriteQuery)
-	promptContent = strings.ReplaceAll(promptContent, "{{query}}", userPrompt)
-
-	resp, err := model.Chat(ctx, []chat.Message{
-		{Role: "system", Content: promptContent},
-	}, &chat.ChatOptions{
+	userContent := p.config.Conversation.IntentExplorePromptUser
+	if userContent == "" {
+		userContent = chatManage.RewriteQuery
+	} else {
+		userContent = strings.ReplaceAll(userContent, "{{query}}", chatManage.RewriteQuery)
+	}
+	messages := []chat.Message{
+		{
+			Role: "system", Content: promptContent,
+		},
+		{
+			Role: "user", Content: userContent,
+		},
+	}
+	opt := &chat.ChatOptions{
 		Temperature:         0.3,
 		MaxCompletionTokens: 1500,
-	})
+	}
+	resp, err := model.Chat(ctx, messages, opt)
 	if err != nil {
 		pipelineError(ctx, "QueryIntentExplore", "model_call", map[string]interface{}{
 			"session_id": chatManage.SessionID,
