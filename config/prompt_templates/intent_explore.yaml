@@ -23,6 +23,7 @@ templates:
       1. **Aggregation Principle**: Each entity can only appear in ONE `path` object. If an entity involves multiple dimensions (e.g., examination + treatment), list them in the `dimensions` array and generate a merged `merged_search_string`.
       2. **Output Format**: Must output in JSON format.
       3. **Professionalism**: Search terms must conform to ophthalmology clinical terminology standards.
+      4. **Language Requirement**: All JSON values (including `entity`, `dimensions`, `merged_search_string`, and `reason`) must be in Chinese. Do not output English content in any value field.
 
       # JSON Schema
       {

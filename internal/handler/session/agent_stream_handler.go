@@ -677,11 +677,11 @@ func (h *AgentStreamHandler) handleQueryIntentExplore(ctx context.Context, evt e
 	pathsData := make([]map[string]interface{}, len(data.AnalysisPaths))
 	for i, path := range data.AnalysisPaths {
 		pathsData[i] = map[string]interface{}{
-			"path_id":             path.PathID,
-			"entity":             path.Entity,
-			"dimensions":         path.Dimensions,
+			"path_id":              path.PathID,
+			"entity":               path.Entity,
+			"dimensions":           path.Dimensions,
 			"merged_search_string": path.MergedSearchString,
-			"reason":             path.Reason,
+			"reason":               path.Reason,
 		}
 	}
 
@@ -693,10 +693,10 @@ func (h *AgentStreamHandler) handleQueryIntentExplore(ctx context.Context, evt e
 		Done:      true,
 		Timestamp: time.Now(),
 		Data: map[string]interface{}{
-			"original_query":      data.OriginalQuery,
-			"analysis_paths":    pathsData,
+			"original_query":       data.OriginalQuery,
+			"analysis_paths":       pathsData,
 			"final_search_queries": data.FinalSearchQueries,
-			"total_search_count":  data.TotalSearchCount,
+			"total_search_count":   data.TotalSearchCount,
 		},
 	}); err != nil {
 		logger.GetLogger(h.ctx).Error("Append query_intent_explore event to stream failed", "error", err)

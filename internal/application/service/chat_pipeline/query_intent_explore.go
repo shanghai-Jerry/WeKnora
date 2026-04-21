@@ -167,7 +167,7 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 			}
 		}
 		chatManage.EventBus.Emit(ctx, types.Event{
-			Type:      types.QUERY_INTENT_EXPLORE,
+			Type:      types.EventType(event.EventQueryIntentExplore),
 			SessionID: chatManage.SessionID,
 			Data: event.QueryIntentExploreData{
 				OriginalQuery:      chatManage.RewriteQuery,
