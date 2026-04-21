@@ -8,10 +8,13 @@
       </div>
       <t-icon :name="expanded ? 'chevron-up' : 'chevron-down'" class="toggle-icon" />
     </div>
-    
+
     <div v-show="expanded" class="stages-content">
+      <div class="timeline-track"></div>
+
       <!-- Query Rewriting Stage -->
       <div v-if="pipelineStages.queryRewritten" class="stage-item">
+        <div class="timeline-dot"></div>
         <div class="stage-label">
           <t-icon name="edit-1" class="stage-icon" />
           {{ $t('chat.queryRewritten') }}
@@ -33,6 +36,7 @@
 
       <!-- Vector Retrieval Query Stage -->
       <div v-if="pipelineStages.vectorQuery" class="stage-item">
+        <div class="timeline-dot"></div>
         <div class="stage-label">
           <t-icon name="bar-chart" class="stage-icon vector-icon" />
           {{ $t('chat.vectorRetrieval') }}
@@ -46,6 +50,7 @@
 
       <!-- Keyword Retrieval Query Stage -->
       <div v-if="pipelineStages.keywordQuery" class="stage-item">
+        <div class="timeline-dot"></div>
         <div class="stage-label">
           <t-icon name="search" class="stage-icon keyword-icon" />
           {{ $t('chat.keywordRetrieval') }}
@@ -59,6 +64,7 @@
 
       <!-- Unified Retrieval Query (fallback) -->
       <div v-if="pipelineStages.retrievalQuery && !pipelineStages.vectorQuery && !pipelineStages.keywordQuery" class="stage-item">
+        <div class="timeline-dot"></div>
         <div class="stage-label">
           <t-icon name="search" class="stage-icon" />
           {{ $t('chat.retrievalQuery') }}
@@ -72,6 +78,7 @@
 
       <!-- Query Expansion Stage -->
       <div v-if="pipelineStages.expansions && pipelineStages.expansions.length > 0" class="stage-item">
+        <div class="timeline-dot"></div>
         <div class="stage-label">
           <t-icon name="layers" class="stage-icon" />
           {{ $t('chat.queryExpansion') }}
@@ -91,9 +98,10 @@
 
       <!-- Intent Explore Stage (Multi-Path Retrieval) -->
       <div v-if="pipelineStages.intentExplore && pipelineStages.intentExplore.analysisPaths && pipelineStages.intentExplore.analysisPaths.length > 0" class="stage-item intent-explore-stage">
+        <div class="timeline-dot"></div>
         <div class="stage-label">
-          <t-icon name="layers" class="stage-icon" />
-          {{ $t('chat.intentExplore') || '多路检索' }}
+          <t-icon name="node-tree" class="stage-icon" />
+          {{ $t('chat.intentExplore') || '已理解问题并定位研究方向' }}
         </div>
         <div class="stage-content">
           <div class="intent-explore-info">
@@ -103,22 +111,24 @@
               <span class="count-label ml-4">召回文献:</span>
               <span class="count-value">{{ pipelineStages.intentExplore.totalSearchCount }} 篇</span>
             </div>
-            <div class="analysis-paths">
-              <div
-                v-for="(path, idx) in pipelineStages.intentExplore.analysisPaths"
-                :key="path.path_id"
-                class="path-item"
-              >
-                <div class="path-header">
-                  <span class="path-id">路径 {{ path.path_id }}</span>
-                  <span class="path-entity">{{ path.entity }}</span>
-                  <span v-for="dim in path.dimensions" :key="dim" class="path-dimension">
-                    {{ dim }}
-                  </span>
-                </div>
-                <div class="path-search-string">
-                  {{ path.merged_search_string }}
-                </div>
+          </div>
+
+          <!-- Intent Graph Visualization -->
+          <div class="intent-graph-wrapper">
+            <div
+              v-for="path in pipelineStages.intentExplore.analysisPaths"
+              :key="path.path_id"
+              class="path-visual-card"
+            >
+              <div class="visual-graph">
+                <div class="visual-center">{{ path.entity }}</div>
+                <template v-for="(dim, idx) in path.dimensions.slice(0, 4)" :key="dim">
+                  <div class="visual-dim" :class="`pos-${idx}`">{{ dim }}</div>
+                  <div class="visual-line" :class="`line-${idx}`"></div>
+                </template>
+              </div>
+              <div v-if="path.merged_search_string" class="visual-search-string">
+                {{ path.merged_search_string }}
               </div>
             </div>
           </div>
@@ -244,17 +254,48 @@ const toggleExpanded = () => {
 }
 
 .stages-content {
-  padding: 12px 14px;
+  position: relative;
+  padding: 16px 14px 16px 32px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+.timeline-track {
+  position: absolute;
+  left: 18px;
+  top: 24px;
+  bottom: 24px;
+  width: 2px;
+  background: var(--td-component-stroke);
+  border-radius: 1px;
 }
 
 .stage-item {
-  padding: 10px 12px;
+  position: relative;
+  padding: 12px 14px;
   background: var(--td-bg-color-secondarycontainer);
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--td-component-stroke);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--td-brand-color-focus);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .timeline-dot {
+    position: absolute;
+    left: -19px;
+    top: 18px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--td-brand-color);
+    border: 2px solid var(--td-bg-color-container);
+    box-shadow: 0 0 0 2px var(--td-brand-color-light);
+    z-index: 2;
+  }
 
   .stage-label {
     display: flex;
@@ -263,7 +304,7 @@ const toggleExpanded = () => {
     font-size: 11px;
     font-weight: 600;
     color: var(--td-text-color-secondary);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 
@@ -374,6 +415,7 @@ const toggleExpanded = () => {
   }
 }
 
+/* Intent Explore Graph Styles */
 .intent-explore-info {
   display: flex;
   flex-direction: column;
@@ -404,62 +446,147 @@ const toggleExpanded = () => {
   }
 }
 
-.analysis-paths {
+.intent-graph-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.path-visual-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.path-item {
-  padding: 10px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
   background: white;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  transition: all 0.2s;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 12px;
+  min-width: 200px;
+  flex: 1;
+  max-width: 260px;
+  transition: all 0.2s ease;
 
   &:hover {
-    border-color: var(--td-brand-color);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    border-color: var(--td-brand-color-focus);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 }
 
-.path-header {
+.visual-graph {
+  position: relative;
+  width: 200px;
+  height: 150px;
+  margin: 0 auto;
+}
+
+.visual-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #f0fffe;
+  border: 2px solid #5cdbd3;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-
-  .path-id {
-    font-size: 10px;
-    color: var(--td-text-color-secondary);
-    background: var(--td-bg-color-page);
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  .path-entity {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--td-text-color-primary);
-  }
-
-  .path-dimension {
-    font-size: 10px;
-    color: var(--td-brand-color);
-    background: var(--td-brand-color-light);
-    padding: 2px 8px;
-    border-radius: 4px;
-  }
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #006d75;
+  z-index: 2;
+  text-align: center;
+  padding: 4px;
+  word-break: break-word;
+  line-height: 1.2;
 }
 
-.path-search-string {
+.visual-dim {
+  position: absolute;
+  padding: 4px 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  font-size: 11px;
+  color: #595959;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.visual-dim.pos-0 {
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.visual-dim.pos-1 {
+  top: 50%;
+  left: 2px;
+  transform: translateY(-50%);
+}
+
+.visual-dim.pos-2 {
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+}
+
+.visual-dim.pos-3 {
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.visual-line {
+  position: absolute;
+  background: #d9d9d9;
+  z-index: 1;
+}
+
+/* Top line: from top dim bottom to center top */
+.visual-line.line-0 {
+  top: 26px;
+  left: 50%;
+  width: 1px;
+  bottom: calc(50% + 32px);
+}
+
+/* Left line: from left dim right to center left */
+.visual-line.line-1 {
+  top: 50%;
+  left: 26px;
+  height: 1px;
+  right: calc(50% + 32px);
+}
+
+/* Right line: from center right to right dim left */
+.visual-line.line-2 {
+  top: 50%;
+  left: calc(50% + 32px);
+  height: 1px;
+  right: 26px;
+}
+
+/* Bottom line: from center bottom to bottom dim top */
+.visual-line.line-3 {
+  top: calc(50% + 32px);
+  left: 50%;
+  width: 1px;
+  bottom: 26px;
+}
+
+.visual-search-string {
   font-size: 11px;
   color: var(--td-text-color-secondary);
   line-height: 1.4;
-  padding: 6px 8px;
+  padding: 6px 10px;
   background: rgba(0, 0, 0, 0.03);
-  border-radius: 4px;
+  border-radius: 6px;
   word-break: break-word;
+  text-align: center;
+  width: 100%;
 }
 </style>
