@@ -214,7 +214,7 @@ func (p *PluginQueryIntentExplore) searchMultiplePaths(ctx context.Context,
 
 	wg.Wait()
 
-	chatManage.SearchResult = allResults
+	chatManage.SearchResult = removeDuplicateResults(chatManage.SearchResult)
 
 	pipelineInfo(ctx, "QueryIntentExplore", "multi_search_done", map[string]interface{}{
 		"session_id":   chatManage.SessionID,
@@ -244,7 +244,7 @@ func (p *PluginQueryIntentExplore) searchSinglePath(ctx context.Context,
 		}
 		return nil
 	}
-
+	searchCM.SearchResult = removeDuplicateResults(searchCM.SearchResult)
 	return searchCM.SearchResult
 }
 
