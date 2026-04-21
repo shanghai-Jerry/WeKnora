@@ -80,8 +80,9 @@ type ConversationConfig struct {
 	RerankThreshold      float64        `yaml:"rerank_threshold"                 json:"rerank_threshold"`
 	FallbackStrategy     string         `yaml:"fallback_strategy"                json:"fallback_strategy"`
 	FallbackResponse     string         `yaml:"fallback_response"                json:"fallback_response"`
-	EnableRewrite        bool           `yaml:"enable_rewrite"                   json:"enable_rewrite"`
-	EnableQueryExpansion bool           `yaml:"enable_query_expansion"           json:"enable_query_expansion"`
+	EnableRewrite            bool           `yaml:"enable_rewrite"                     json:"enable_rewrite"`
+	EnableQueryExpansion   bool           `yaml:"enable_query_expansion"         json:"enable_query_expansion"`
+	EnableQueryIntentExplore bool       `yaml:"enable_query_intent_explore"  json:"enable_query_intent_explore"`
 	EnableRerank         bool           `yaml:"enable_rerank"                    json:"enable_rerank"`
 	Summary              *SummaryConfig `yaml:"summary"                          json:"summary"`
 
@@ -93,11 +94,13 @@ type ConversationConfig struct {
 	ExtractEntitiesPromptID      string `yaml:"extract_entities_prompt_id"        json:"extract_entities_prompt_id"`
 	ExtractRelationshipsPromptID string `yaml:"extract_relationships_prompt_id"   json:"extract_relationships_prompt_id"`
 	GenerateQuestionsPromptID    string `yaml:"generate_questions_prompt_id"      json:"generate_questions_prompt_id"`
+	IntentExplorePromptID      string `yaml:"intent_explore_prompt_id"    json:"intent_explore_prompt_id"`
 
 	// Resolved prompt text fields (populated by backfill, not from YAML)
 	FallbackPrompt             string `yaml:"-" json:"fallback_prompt"`
 	RewritePromptSystem        string `yaml:"-" json:"rewrite_prompt_system"`
 	RewritePromptUser          string `yaml:"-" json:"rewrite_prompt_user"`
+	IntentExplorePrompt       string `yaml:"-" json:"intent_explore_prompt"`
 	GenerateSessionTitlePrompt string `yaml:"-" json:"generate_session_title_prompt"`
 	GenerateSummaryPrompt      string `yaml:"-" json:"generate_summary_prompt"`
 	ExtractEntitiesPrompt      string `yaml:"-" json:"extract_entities_prompt"`
@@ -228,6 +231,8 @@ type PromptTemplatesConfig struct {
 	GenerateQuestions    []PromptTemplate `yaml:"generate_questions"     json:"generate_questions,omitempty"`
 	// IntentPrompts holds per-intent system prompt overrides (template ID = intent value).
 	IntentPrompts []PromptTemplate `yaml:"intent_prompts" json:"intent_prompts,omitempty"`
+	// IntentExplore holds multi-vector retrieval intent exploration prompts
+	IntentExplore []PromptTemplate `yaml:"intent_explore" json:"intent_explore,omitempty"`
 }
 
 // DefaultTemplate returns the first template marked as default in the list,
@@ -381,12 +386,15 @@ func LoadConfig() (*Config, error) {
 
 	// 加载提示词模板（从目录或配置文件）
 	configDir := filepath.Dir(viper.ConfigFileUsed())
+	fmt.Printf("Config directory: %s\n", configDir)
 	promptTemplates, err := loadPromptTemplates(configDir)
 	if err != nil {
 		fmt.Printf("Warning: failed to load prompt templates from directory: %v\n", err)
-		// 如果目录加载失败，使用配置文件中的模板（如果有）
 	} else if promptTemplates != nil {
 		cfg.PromptTemplates = promptTemplates
+		fmt.Printf("Loaded prompt templates: IntentExplore=%d\n", len(cfg.PromptTemplates.IntentExplore))
+	} else {
+		fmt.Printf("Warning: promptTemplates is nil after load\n")
 	}
 
 	// Back-fill conversation config from prompt templates defaults
@@ -592,6 +600,21 @@ func backfillConversationDefaults(cfg *Config) {
 			fmt.Printf("Warning: generate_questions_prompt_id %q not found\n", conv.GenerateQuestionsPromptID)
 		}
 	}
+	if conv.IntentExplorePromptID != "" {
+		if t := FindTemplateByID(pt, conv.IntentExplorePromptID); t != nil {
+			conv.IntentExplorePrompt = t.Content
+			fmt.Printf("Loaded intent_explore prompt: %s (ID: %s)\n", t.Name, conv.IntentExplorePromptID)
+		} else {
+			fmt.Printf("Warning: intent_explore_prompt_id %q not found\n", conv.IntentExplorePromptID)
+		}
+	} else if pt.IntentExplore != nil && len(pt.IntentExplore) > 0 {
+		fmt.Printf("Info: IntentExplore templates available: %d\n", len(pt.IntentExplore))
+		for i, t := range pt.IntentExplore {
+			fmt.Printf("  Template[%d]: ID=%s, Name=%s\n", i, t.ID, t.Name)
+		}
+	} else {
+		fmt.Printf("Info: intent_explore_prompt_id is empty and no IntentExplore templates found\n")
+	}
 	if conv.Summary != nil {
 		if conv.Summary.PromptID != "" {
 			if t := FindTemplateByID(pt, conv.Summary.PromptID); t != nil {
@@ -640,6 +663,7 @@ func FindTemplateByID(pt *PromptTemplatesConfig, id string) *PromptTemplate {
 		pt.GraphExtraction,
 		pt.GenerateQuestions,
 		pt.IntentPrompts,
+		pt.IntentExplore,
 	} {
 		for i := range list {
 			if list[i].ID == id {
@@ -691,6 +715,7 @@ func loadPromptTemplates(configDir string) (*PromptTemplatesConfig, error) {
 		"graph_extraction.yaml":       &config.GraphExtraction,
 		"generate_questions.yaml":     &config.GenerateQuestions,
 		"intent_prompts.yaml":         &config.IntentPrompts,
+		"intent_explore.yaml":        &config.IntentExplore,
 	}
 
 	// 加载每个模板文件

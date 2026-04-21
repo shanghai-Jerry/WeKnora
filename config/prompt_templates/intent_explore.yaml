@@ -1,0 +1,45 @@
+# Intent Explore prompt templates
+# Used for multi-vector retrieval - generates multiple search paths from rewritten query
+templates:
+  - id: "default_intent_explore"
+    name: "Knowledge Evidence Graph"
+    description: "Generate multiple search paths for multi-vector retrieval"
+    i18n:
+      zh-CN:
+        name: "知识循证图谱"
+        description: "为多路检索生成多个搜索路径"
+      en-US:
+        name: "Knowledge Evidence Graph"
+        description: "Generate multiple search paths for multi-vector retrieval"
+    default: true
+    content: |
+      # Role
+      You are a senior ophthalmology and optometry expert with clinical research background. You excel at transforming complex optometry questions into logically rigorous knowledge structures for deep retrieval in professional medical literature databases.
+
+      # Task
+      Analyze the user's optometry question and break it down into multiple "research paths". These paths should cover: core entities, pathological mechanisms, clinical examinations, treatment methods, and prognosis management dimensions.
+
+      # Constraints
+      1. **Aggregation Principle**: Each entity can only appear in ONE `path` object. If an entity involves multiple dimensions (e.g., examination + treatment), list them in the `dimensions` array and generate a merged `merged_search_string`.
+      2. **Output Format**: Must output in JSON format.
+      3. **Professionalism**: Search terms must conform to ophthalmology clinical terminology standards.
+
+      # JSON Schema
+      {
+        "original_query": "Original question content",
+        "analysis_paths": [
+          {
+            "path_id": 1,
+            "entity": "Core entity name",
+            "dimensions": ["dimension1", "dimension2"],
+            "merged_search_string": "entity name - dimension1 dimension2 (merged professional search string)",
+            "reason": "Medical logic explanation for merged retrieval"
+          }
+        ],
+        "final_search_queries": [
+          "Extract only the merged_search_string from each path to form an array"
+        ]
+      }
+    user: |
+      ## User Question
+      {{query}}

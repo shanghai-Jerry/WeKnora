@@ -73,6 +73,7 @@ func (h *AgentStreamHandler) Subscribe() {
 	h.eventBus.On(event.EventQueryExpansion, h.handleQueryExpansion)
 	h.eventBus.On(event.EventRetrievalVectorQ, h.handleVectorQuery)
 	h.eventBus.On(event.EventRetrievalKeywordQ, h.handleKeywordQuery)
+	h.eventBus.On(event.EventQueryIntentExplore, h.handleQueryIntentExplore)
 }
 
 // handleThought handles agent thought events
@@ -661,6 +662,44 @@ func (h *AgentStreamHandler) handleKeywordQuery(ctx context.Context, evt event.E
 		},
 	}); err != nil {
 		logger.GetLogger(h.ctx).Error("Append keyword_query event to stream failed", "error", err)
+	}
+
+	return nil
+}
+
+// handleQueryIntentExplore handles query intent explore events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleQueryIntentExplore(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.QueryIntentExploreData)
+	if !ok {
+		return nil
+	}
+
+	pathsData := make([]map[string]interface{}, len(data.AnalysisPaths))
+	for i, path := range data.AnalysisPaths {
+		pathsData[i] = map[string]interface{}{
+			"path_id":             path.PathID,
+			"entity":             path.Entity,
+			"dimensions":         path.Dimensions,
+			"merged_search_string": path.MergedSearchString,
+			"reason":             path.Reason,
+		}
+	}
+
+	// Append query_intent_explore event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeQueryIntentExplore,
+		Content:   "",
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"original_query":      data.OriginalQuery,
+			"analysis_paths":    pathsData,
+			"final_search_queries": data.FinalSearchQueries,
+			"total_search_count":  data.TotalSearchCount,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append query_intent_explore event to stream failed", "error", err)
 	}
 
 	return nil

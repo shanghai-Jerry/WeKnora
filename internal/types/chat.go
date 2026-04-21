@@ -69,6 +69,8 @@ const (
 	ResponseTypeVectorQuery ResponseType = "vector_query"
 	// Keyword retrieval query response type (for KnowledgeQA pipeline stages)
 	ResponseTypeKeywordQuery ResponseType = "keyword_query"
+	// Query intent explore response type (for KnowledgeQA pipeline stages)
+	ResponseTypeQueryIntentExplore ResponseType = "query_intent_explore"
 )
 
 // StreamResponse stream response

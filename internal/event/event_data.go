@@ -244,3 +244,20 @@ type VectorQueryData struct {
 type KeywordQueryData struct {
 	Query string `json:"query"`
 }
+
+// AnalysisPath represents one research path in intent exploration
+type AnalysisPath struct {
+	PathID            int      `json:"path_id"`
+	Entity            string   `json:"entity"`
+	Dimensions        []string `json:"dimensions"`
+	MergedSearchString string   `json:"merged_search_string"`
+	Reason            string   `json:"reason"`
+}
+
+// QueryIntentExploreData represents multi-vector retrieval intent exploration data
+type QueryIntentExploreData struct {
+	OriginalQuery      string         `json:"original_query"`
+	AnalysisPaths      []*AnalysisPath `json:"analysis_paths"`
+	FinalSearchQueries []string        `json:"final_search_queries"`
+	TotalSearchCount   int             `json:"total_search_count"`
+}

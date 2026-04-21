@@ -7,7 +7,7 @@ server:
 # NOTE: Prompt content is resolved from prompt_templates/ YAML files via xxx_id fields.
 # Set the _id to the template ID you want; the system will load its content at startup.
 conversation:
-  max_rounds: 1
+  max_rounds: 5
   keyword_threshold: 0.3
   embedding_top_k: 10
   vector_threshold: 0.6
@@ -18,6 +18,8 @@ conversation:
   fallback_prompt_id: "default_fallback_prompt"  # from prompt_templates/fallback.yaml (mode: "model")
   enable_rewrite: true
   enable_query_expansion: false
+  enable_query_intent_explore: true
+  intent_explore_prompt_id: "default_intent_explore"
   enable_rerank: true
   rewrite_prompt_id: "default_rewrite"  # from prompt_templates/rewrite.yaml (content + user fields)
   generate_summary_prompt_id: "default_summary"  # from prompt_templates/generate_summary.yaml
