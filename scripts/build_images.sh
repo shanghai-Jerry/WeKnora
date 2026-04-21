@@ -12,8 +12,12 @@ NC='\033[0m' # 无颜色
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    source "$PROJECT_ROOT/.env"
+fi
 # 设置默认Docker标签,默认使用latest
-DOCKER_TAG="dev-0.3.6.1"
+DOCKER_TAG="${WEKNORA_APP_VERSION:-latest}"
+DOCKER_TAG_FRONTEND="${WEKNORA_FRONTEND_VERSION:-latest}"
 # 版本信息
 VERSION="1.0.0"
 SCRIPT_NAME=$(basename "$0")
@@ -205,7 +209,7 @@ build_frontend_image() {
     docker build \
         --platform $PLATFORM \
         -f frontend/Dockerfile \
-        -t wechatopenai/weknora-ui:$DOCKER_TAG \
+        -t wechatopenai/weknora-ui:$DOCKER_TAG_FRONTEND \
         frontend/
     
     if [ $? -eq 0 ]; then

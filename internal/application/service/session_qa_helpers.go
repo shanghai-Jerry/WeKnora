@@ -127,6 +127,16 @@ func (s *sessionService) applyAgentOverridesToChatManage(
 		cm.SummaryConfig.Temperature = customAgent.Config.Temperature
 		logger.Infof(ctx, "Using custom agent's temperature: %f", customAgent.Config.Temperature)
 	}
+	if customAgent.Config.TopP >= 0.1 && customAgent.Config.TopP <= 1 {
+		cm.SummaryConfig.TopP = customAgent.Config.TopP
+		logger.Infof(ctx, "Using custom agent's top_p: %f", customAgent.Config.TopP)
+	}
+
+	if customAgent.Config.TopK >= 1 && customAgent.Config.TopK <= 200 {
+		cm.SummaryConfig.TopK = customAgent.Config.TopK
+		logger.Infof(ctx, "Using custom agent's top_k: %d", customAgent.Config.TopK)
+	}
+
 	if customAgent.Config.MaxCompletionTokens > 0 {
 		cm.SummaryConfig.MaxCompletionTokens = customAgent.Config.MaxCompletionTokens
 		logger.Infof(ctx, "Using custom agent's max_completion_tokens: %d", customAgent.Config.MaxCompletionTokens)

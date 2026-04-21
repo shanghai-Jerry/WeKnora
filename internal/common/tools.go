@@ -196,6 +196,11 @@ func PipelineError(ctx context.Context, stage, action string, fields map[string]
 	logger.GetLogger(ctx).Error(PipelineLog(stage, action, fields))
 }
 
+// PipelineDebug logs pipeline debug level entries.
+func PipelineDebug(ctx context.Context, stage, action string, fields map[string]interface{}) {
+	logger.GetLogger(ctx).Debug(PipelineLog(stage, action, fields))
+}
+
 func formatPipelineLogValue(value interface{}) string {
 	switch v := value.(type) {
 	case string:

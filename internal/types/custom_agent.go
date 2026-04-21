@@ -83,6 +83,10 @@ type CustomAgentConfig struct {
 	RerankModelID string `yaml:"rerank_model_id" json:"rerank_model_id"`
 	// Temperature for LLM (0-1)
 	Temperature float64 `yaml:"temperature" json:"temperature"`
+	// TopP for LLM (0.1-1)
+	TopP float64 `yaml:"top_p" json:"top_p"`
+	// TopK for LLM (1-200)
+	TopK int `yaml:"top_k" json:"top_k"`
 	// Maximum completion tokens (only for normal mode)
 	MaxCompletionTokens int `yaml:"max_completion_tokens" json:"max_completion_tokens"`
 	// Whether to enable thinking mode (for models that support extended thinking)
@@ -220,8 +224,15 @@ func (a *CustomAgent) EnsureDefaults() {
 	if a == nil {
 		return
 	}
+
 	if a.Config.Temperature < 0 {
 		a.Config.Temperature = 0.7
+	}
+	if a.Config.TopP < 0.1 || a.Config.TopP > 1 {
+		a.Config.TopP = 0.95
+	}
+	if a.Config.TopK < 1 || a.Config.TopK > 200 {
+		a.Config.TopK = 40
 	}
 	if a.Config.MaxIterations == 0 {
 		a.Config.MaxIterations = 10

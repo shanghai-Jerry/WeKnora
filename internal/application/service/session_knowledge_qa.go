@@ -49,6 +49,7 @@ func (s *sessionService) KnowledgeQA(
 		MaxCompletionTokens: s.cfg.Conversation.Summary.MaxCompletionTokens,
 		Thinking:            s.cfg.Conversation.Summary.Thinking,
 	}
+	logger.Debugf(ctx, "Summary config: %v", summaryConfig)
 	fallbackStrategy := types.FallbackStrategy(s.cfg.Conversation.FallbackStrategy)
 	if fallbackStrategy == "" {
 		fallbackStrategy = types.FallbackStrategyFixed
@@ -760,7 +761,7 @@ func (s *sessionService) consumeFallbackStream(
 	streamCompleted := false
 
 	for response := range responseChan {
-		logger.Debugf(ctx, "[consumeFallbackStream] Received response: %v", response)
+		// logger.Debugf(ctx, "[consumeFallbackStream] Received response: %v", response)
 		// Emit event for each answer chunk
 		if response.ResponseType == types.ResponseTypeAnswer {
 			finalContent += response.Content

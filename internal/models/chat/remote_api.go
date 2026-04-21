@@ -302,7 +302,7 @@ func (c *RemoteAPIChat) chatWithRawHTTP(ctx context.Context, endpoint string, cu
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	logger.Infof(ctx, "[LLM Request] model=%s, raw HTTP request:\n%s", c.modelName, secutils.CompactImageDataURLForLog(string(jsonData)))
+	logger.Debugf(ctx, "[LLM Request] model=%s, raw HTTP request:\n%s", c.modelName, secutils.CompactImageDataURLForLog(string(jsonData)))
 	if endpoint == "" {
 		endpoint = c.baseURL + "/chat/completions"
 	}
@@ -405,6 +405,9 @@ func removeThinkingContent(content string) string {
 
 // ChatStream 进行流式聊天
 func (c *RemoteAPIChat) ChatStream(ctx context.Context, messages []Message, opts *ChatOptions) (<-chan types.StreamResponse, error) {
+
+	logger.Debugf(ctx, "[LLM Stream] ChatStream model=%s, opts=%v", c.modelName, opts)
+
 	req := c.BuildChatCompletionRequest(messages, opts, true)
 
 	var customEndpoint string

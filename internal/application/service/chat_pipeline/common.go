@@ -46,6 +46,7 @@ func prepareChatModel(ctx context.Context, modelService interfaces.ModelService,
 	opt := &chat.ChatOptions{
 		Temperature:         chatManage.SummaryConfig.Temperature,
 		TopP:                chatManage.SummaryConfig.TopP,
+		TopK:                chatManage.SummaryConfig.TopK,
 		Seed:                chatManage.SummaryConfig.Seed,
 		MaxTokens:           chatManage.SummaryConfig.MaxTokens,
 		MaxCompletionTokens: chatManage.SummaryConfig.MaxCompletionTokens,

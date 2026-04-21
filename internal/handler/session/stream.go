@@ -411,7 +411,9 @@ func (h *Handler) handleAgentEventsForSSE(
 								logger.Warnf(ctx, "Error getting events while waiting for title: %v", err)
 								break titleWaitLoop
 							}
+							// Log received events
 							if len(events) > 0 {
+								logger.Debugf(ctx, "Received events while waiting for title, event count: %v", len(events))
 								for _, evt := range events {
 									response := buildStreamResponse(evt, requestID)
 									c.SSEvent("message", response)
