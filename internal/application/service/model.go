@@ -339,14 +339,23 @@ func (s *modelService) GetRerankModel(ctx context.Context, modelId string) (rera
 
 	logger.Infof(ctx, "Getting rerank model: %s, source: %s", model.Name, model.Source)
 
-	// Initialize the reranker with model configuration
-	reranker, err := rerank.NewReranker(&rerank.RerankerConfig{
+	// Initialize the reranker with model configuration.
+	// Allow overriding ScoreFormat via extra_config["rerank_score_format"]
+	// so that generic deployments can explicitly declare logit vs probability output.
+	cfg := &rerank.RerankerConfig{
 		ModelID:   model.ID,
 		APIKey:    model.Parameters.APIKey,
 		BaseURL:   model.Parameters.BaseURL,
 		ModelName: model.Name,
 		Source:    model.Source,
-	})
+		Provider:  model.Parameters.Provider,
+	}
+	if model.Parameters.ExtraConfig != nil {
+		if format, ok := model.Parameters.ExtraConfig["rerank_score_format"]; ok && format != "" {
+			cfg.Format = rerank.ScoreFormat(format)
+		}
+	}
+	reranker, err := rerank.NewReranker(cfg)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"model_id":   model.ID,
