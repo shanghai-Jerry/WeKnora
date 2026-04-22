@@ -677,11 +677,16 @@ func (h *AgentStreamHandler) handleQueryIntentExplore(ctx context.Context, evt e
 	pathsData := make([]map[string]interface{}, len(data.AnalysisPaths))
 	for i, path := range data.AnalysisPaths {
 		pathsData[i] = map[string]interface{}{
-			"path_id":              path.PathID,
-			"entity":               path.Entity,
-			"dimensions":           path.Dimensions,
-			"merged_search_string": path.MergedSearchString,
-			"reason":               path.Reason,
+			"path_id":               path.PathID,
+			"entity":                path.Entity,
+			"dimensions":            path.Dimensions,
+			"merged_search_string":  path.MergedSearchString,
+			"reason":                path.Reason,
+			"source_entity":         path.SourceEntity,
+			"target_entity":         path.TargetEntity,
+			"interaction_type":      path.InteractionType,
+			"mechanistic_link":      path.MechanisticLink,
+			"clinical_significance": path.ClinicalSignificance,
 		}
 	}
 

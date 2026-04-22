@@ -6,6 +6,7 @@
                 v-if="!session.isAgentMode && session.pipeline_stages"
                 :pipeline-stages="session.pipeline_stages"
                 :knowledge-references="session.knowledge_references"
+                :is_completed="session.is_completed"
             ></PipelineStagesDisplay>
             <!-- 显示@的知识库和文件（非 Agent 模式下显示） -->
             <div v-if="!session.isAgentMode && mentionedItems && mentionedItems.length > 0" class="mentioned_items">

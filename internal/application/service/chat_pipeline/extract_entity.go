@@ -211,7 +211,7 @@ func (e *Extractor) Extract(ctx context.Context, content string) (*types.GraphDa
 			logger.Debugf(ctx, "[Extract] unhandled response type: %s, content: %s", response.ResponseType, response.Content)
 		}
 	}
-	logger.Warnf(ctx, "[Extract] response types collected: %v", responseTypes)
+	// logger.Warnf(ctx, "[Extract] response types collected: %v", responseTypes)
 	if streamErr != nil {
 		return nil, streamErr
 	}
@@ -556,7 +556,6 @@ func (f *Formater) extractContent(ctx context.Context, text string) string {
 		FormatTypeYAML: {"yaml": {}, "yml": {}},
 		FormatTypeJSON: {"json": {}},
 	}
-	logger.Warnf(ctx, "extractContent text: %v", text)
 	matches := _FENCE_RE.FindAllStringSubmatch(text, -1)
 	var candidates []string
 	for _, match := range matches {

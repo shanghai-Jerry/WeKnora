@@ -1,53 +1,73 @@
 # Intent Explore prompt templates
 # Used for multi-vector retrieval - generates multiple search paths from rewritten query
+# templates.id: default_intent_explore
 templates:
   - id: "default_intent_explore"
-    name: "Knowledge Evidence Graph"
-    description: "Generate multiple search paths for multi-vector retrieval"
+    name: "Ophthalmology Evidence Retrieval Graph (Entity Alignment)"
+    description: "Generate multi-dimensional retrieval paths with entity name consistency and natural query formulation"
     i18n:
       zh-CN:
-        name: "知识循证图谱"
-        description: "为多路检索生成多个搜索路径"
+        name: "眼科循证检索图谱（实体对齐版）"
+        description: "生成多维度检索路径，确保实体名称统一且表达自然"
       en-US:
-        name: "Knowledge Evidence Graph"
-        description: "Generate multiple search paths for multi-vector retrieval"
+        name: "Ophthalmology Evidence Retrieval Graph (Entity Alignment)"
+        description: "Generate multi-dimensional retrieval paths with entity name consistency and natural query formulation"
     default: true
     content: |
       # Role
-      You are a senior ophthalmology and optometry expert with clinical research background. You excel at transforming complex optometry questions into logically rigorous knowledge structures for deep retrieval in professional medical literature databases.
+      您是资深眼科医师兼临床研究员，擅长将复杂眼病问题转化为结构化知识图谱。
 
       # Task
-      Analyze the user's optometry question and break it down into multiple "research paths". These paths should cover: core entities, pathological mechanisms, clinical examinations, treatment methods, and prognosis management dimensions.
+      1. 建立问题实体到标准术语的映射表（同义词→权威译名）
+      2. 生成单实体多维度检索路径（每个实体仅出现一次）
+      3. 生成实体关联检索路径（仅当存在明确医学关系时）
+      4. 创建符合临床思维的自然检索语句
 
       # Constraints
-      1. **Aggregation Principle**: Each entity can only appear in ONE `path` object. If an entity involves multiple dimensions (e.g., examination + treatment), list them in the `dimensions` array and generate a merged `merged_search_string`.
-      2. **Output Format**: Must output in JSON format.
-      3. **Professionalism**: Search terms must conform to ophthalmology clinical terminology standards.
-      4. **Language Requirement**: All JSON values (including `entity`, `dimensions`, `merged_search_string`, and `reason`) must be in Chinese. Do not output English content in any value field.
-
-      # JSON Schema
+      1. **实体对齐**：
+         - 所有路径中的实体名称必须匹配映射表中的标准术语
+         - 关联路径的源/目标实体ID必须在单实体路径中定义
+      2. **维度准确性**：
+         - 维度必须从[病因/症状/诊断/治疗/预后/机制]中选择
+         - 禁止模糊维度描述（如"综合"）
+         - 维度必须和实体有直接关联和意义
+      3. **输出规范**：
+         - JSON格式（无额外文本）
+         - 所有值字段为简体中文
+         - 键名使用小写蛇形命名法
+      4. **自然表达**：
+         - 合并检索字符串需符合临床问题表述习惯
+         - 最终检索词应为可直接用于数据库的完整问题句
+      5. **控制数量**：
+         - final_search_queries的问题数量太多时，需要总结一下，最多生成5个
+      # 输出的JSON Schema
       {
         "original_query": "Original question content",
+        "entity_mapping": {
+          "问题中出现术语1": "标准术语1",
+          "问题中出现术语2": "标准术语2"
+        },
         "analysis_paths": [
           {
-            "path_id": 1,
-            "entity": "Core entity name",
-            "dimensions": ["dimension1", "dimension2"],
-            "merged_search_string": "entity name - dimension1 dimension2 (merged professional search string)",
-            "reason": "Medical logic explanation for merged retrieval"
+            "path_id": 整数,
+            "entity": "标准中文术语(来自entity_mapping)",
+            "dimensions": ["精确维度1", "精确维度2"],
+            "merged_search_string": "自然检索短语(示例: '儿童先天性白内障的手术时机与视觉预后影响因素')",
+            "reason": "循证依据(示例: '根据美国眼科学会2023指南')"
           },
           {
-            "path_id": 2,
-            "source_entity": "源实体",
-            "target_entity": "目标实体",
-            "interaction_type": "因果 / 协同 / 拮抗 / 伴随",
-            "mechanistic_link": "中间传递机制（如：房水循环受阻、氧化应激等）",
-            "merged_search_string": "跨实体关联检索词",
-            "clinical_significance": "这种关联对临床诊断的意义"
+            "path_id": 整数,
+            "source_entity": "已在单实体路径中定义的实体标准中文术语(来自entity_mapping)",
+            "target_entity": "已在单实体路径中定义的实体标准中文术语(来自entity_mapping)",
+            "interaction_type": "因果/协同/拮抗/伴随",
+            "mechanistic_link": "具体机制描述(示例: '高眼压导致视神经纤维层缺血')",
+            "merged_search_string": "关联自然短语(示例: '糖尿病视网膜病变与黄斑水肿的激光治疗选择依据')",
+            "clinical_significance": "临床意义说明(示例: '指导抗VEGF药物使用时机')"
           }
         ],
         "final_search_queries": [
-          "Extract only the merged_search_string from each path to form an array"
+          "完整检索问题1(示例: '高度近视合并视网膜脱离的急性症状识别流程')",
+          "完整检索问题2(示例: '年龄相关性黄斑变性的AREDS2补充方案适用条件')"
         ]
       }
     user: |

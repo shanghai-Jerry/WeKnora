@@ -314,11 +314,17 @@ var Pipeline = map[string][]EventType{
 var Pipline = Pipeline
 
 type AnalysisPath struct {
-	PathID            int      `json:"path_id"`
-	Entity            string   `json:"entity"`
-	Dimensions        []string `json:"dimensions"`
+	PathID             int      `json:"path_id"`
+	Entity             string   `json:"entity"`
+	Dimensions         []string `json:"dimensions"`
 	MergedSearchString string   `json:"merged_search_string"`
-	Reason            string   `json:"reason"`
+	Reason             string   `json:"reason"`
+	// Relation-type path fields
+	SourceEntity       string   `json:"source_entity"`
+	TargetEntity       string   `json:"target_entity"`
+	InteractionType    string   `json:"interaction_type"`
+	MechanisticLink    string   `json:"mechanistic_link"`
+	ClinicalSignificance string `json:"clinical_significance"`
 }
 
 type IntentExploreData struct {

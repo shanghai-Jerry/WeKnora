@@ -3,6 +3,7 @@ package chatpipeline
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -27,11 +28,17 @@ type intentExploreOutput struct {
 }
 
 type analysisPath struct {
-	PathID             int      `json:"path_id"`
-	Entity             string   `json:"entity"`
-	Dimensions         []string `json:"dimensions"`
-	MergedSearchString string   `json:"merged_search_string"`
-	Reason             string   `json:"reason"`
+	PathID               int      `json:"path_id"`
+	Entity               string   `json:"entity"`
+	Dimensions           []string `json:"dimensions"`
+	MergedSearchString   string   `json:"merged_search_string"`
+	Reason               string   `json:"reason"`
+	// Relation-type path fields
+	SourceEntity         string   `json:"source_entity"`
+	TargetEntity         string   `json:"target_entity"`
+	InteractionType      string   `json:"interaction_type"`
+	MechanisticLink      string   `json:"mechanistic_link"`
+	ClinicalSignificance string   `json:"clinical_significance"`
 }
 
 func NewPluginQueryIntentExplore(
@@ -119,24 +126,53 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 			Role: "user", Content: userContent,
 		},
 	}
+
 	opt := &chat.ChatOptions{
 		Temperature:         0.3,
-		MaxCompletionTokens: 1500,
+		MaxCompletionTokens: 65536,
 	}
-	resp, err := model.Chat(ctx, messages, opt)
+	// 使用chatStream流失式输出，实时解析JSON数据
+	// Use streaming to get the model response
+	responseChan, err := model.ChatStream(ctx, messages, opt)
 	if err != nil {
-		pipelineError(ctx, "QueryIntentExplore", "model_call", map[string]interface{}{
-			"session_id": chatManage.SessionID,
-			"error":      err.Error(),
-		})
+		logger.Errorf(ctx, "failed to start chat stream: %v", err)
 		return next()
 	}
 
-	output := p.parseOutput(resp.Content)
+	// Collect all answer chunks from the stream
+	var fullContent strings.Builder
+	var streamErr error
+	var responseTypes []string
+	for response := range responseChan {
+		responseTypes = append(responseTypes, string(response.ResponseType))
+		switch response.ResponseType {
+		case types.ResponseTypeAnswer:
+			fullContent.WriteString(response.Content)
+		case types.ResponseTypeError:
+			logger.Errorf(ctx, "stream error: %s", response.Content)
+			streamErr = fmt.Errorf("stream error: %s", response.Content)
+		case types.ResponseTypeThinking:
+			logger.Debugf(ctx, "QueryIntentExplore thinking: %s", response.Content)
+		case types.ResponseTypeComplete:
+			logger.Debugf(ctx, "[QueryIntentExplore] complete received")
+		default:
+			logger.Debugf(ctx, "[QueryIntentExplore] unhandled response type: %s, content: %s", response.ResponseType, response.Content)
+		}
+	}
+	// logger.Warnf(ctx, "[Extract] response types collected: %v", responseTypes)
+	if streamErr != nil {
+		return next()
+	}
+
+	fullContentString := fullContent.String()
+
+	logger.Infof(ctx, "QueryIntentExplore content llm response: %s", fullContentString)
+
+	output := p.parseOutput(fullContentString)
 	if output == nil {
 		pipelineWarn(ctx, "QueryIntentExplore", "parse_failed", map[string]interface{}{
 			"session_id":   chatManage.SessionID,
-			"raw_response": resp.Content,
+			"raw_response": fullContentString,
 		})
 		return next()
 	}
@@ -147,11 +183,16 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 	}
 	for _, path := range output.AnalysisPaths {
 		chatManage.IntentExploreData.AnalysisPaths = append(chatManage.IntentExploreData.AnalysisPaths, &types.AnalysisPath{
-			PathID:             path.PathID,
-			Entity:             path.Entity,
-			Dimensions:         path.Dimensions,
-			MergedSearchString: path.MergedSearchString,
-			Reason:             path.Reason,
+			PathID:               path.PathID,
+			Entity:               path.Entity,
+			Dimensions:           path.Dimensions,
+			MergedSearchString:   path.MergedSearchString,
+			Reason:               path.Reason,
+			SourceEntity:         path.SourceEntity,
+			TargetEntity:         path.TargetEntity,
+			InteractionType:      path.InteractionType,
+			MechanisticLink:      path.MechanisticLink,
+			ClinicalSignificance: path.ClinicalSignificance,
 		})
 	}
 
@@ -166,13 +207,18 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 	if chatManage.EventBus != nil {
 		paths := make([]*event.AnalysisPath, len(output.AnalysisPaths))
 		for i, path := range output.AnalysisPaths {
-			paths[i] = &event.AnalysisPath{
-				PathID:             path.PathID,
-				Entity:             path.Entity,
-				Dimensions:         path.Dimensions,
-				MergedSearchString: path.MergedSearchString,
-				Reason:             path.Reason,
-			}
+		paths[i] = &event.AnalysisPath{
+			PathID:               path.PathID,
+			Entity:               path.Entity,
+			Dimensions:           path.Dimensions,
+			MergedSearchString:   path.MergedSearchString,
+			Reason:               path.Reason,
+			SourceEntity:         path.SourceEntity,
+			TargetEntity:         path.TargetEntity,
+			InteractionType:      path.InteractionType,
+			MechanisticLink:      path.MechanisticLink,
+			ClinicalSignificance: path.ClinicalSignificance,
+		}
 		}
 		chatManage.EventBus.Emit(ctx, types.Event{
 			Type:      types.EventType(event.EventQueryIntentExplore),
@@ -214,7 +260,7 @@ func (p *PluginQueryIntentExplore) searchMultiplePaths(ctx context.Context,
 
 	wg.Wait()
 
-	chatManage.SearchResult = removeDuplicateResults(chatManage.SearchResult)
+	chatManage.SearchResult = removeDuplicateResults(append(chatManage.SearchResult, allResults...))
 
 	pipelineInfo(ctx, "QueryIntentExplore", "multi_search_done", map[string]interface{}{
 		"session_id":   chatManage.SessionID,
@@ -250,7 +296,6 @@ func (p *PluginQueryIntentExplore) searchSinglePath(ctx context.Context,
 
 func (p *PluginQueryIntentExplore) parseOutput(content string) *intentExploreOutput {
 	content = strings.TrimSpace(content)
-	logger.Infof(context.Background(), "IntentExplore: raw response: %s", content)
 	if content == "" {
 		return nil
 	}

@@ -164,8 +164,9 @@ func (p *PluginSearchParallel) OnEvent(ctx context.Context,
 
 	errs := RunParallel(tasks...)
 
-	// Merge results from both searches
-	chatManage.SearchResult = append(chunkCM.SearchResult, entityCM.SearchResult...)
+	// Merge results from both searches (preserve existing results e.g. from QUERY_INTENT_EXPLORE)
+	chatManage.SearchResult = append(chatManage.SearchResult, chunkCM.SearchResult...)
+	chatManage.SearchResult = append(chatManage.SearchResult, entityCM.SearchResult...)
 	chatManage.SearchResult = removeDuplicateResults(chatManage.SearchResult)
 
 	for name, err := range errs {
