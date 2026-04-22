@@ -442,6 +442,7 @@ export default {
     vectorRetrieval: "向量检索 Query",
     keywordRetrieval: "关键词检索 Query",
     queryExpansion: "Query 扩展",
+    evidenceRetrieval: "已完成循证检索",
   },
   settings: {
     title: "设置",
@@ -681,7 +682,7 @@ export default {
     rerankTopKLabel: "Rerank 数量 (Top K)",
     rerankTopKDescription: "重排序后保留的最大结果数量",
     rerankThresholdLabel: "Rerank 阈值",
-    rerankThresholdDescription: "重排序的最低分数阈值（-10 到 10）",
+    rerankThresholdDescription: "重排序的最低相关性概率（0 到 1，默认 0.2）",
     rerankModelLabel: "Rerank 模型",
     rerankModelDescription: "选择用于搜索结果重排序的模型",
     rerankModelRequired: "请选择 Rerank 模型，搜索功能需要此模型对结果进行重排序",
@@ -2463,7 +2464,7 @@ export default {
     },
     rerankThreshold: {
       label: "ReRank 阈值",
-      desc: "重排序阶段的最低得分阈值",
+      desc: "重排序阶段的最低相关性概率（0-1）",
     },
     enableRewrite: {
       label: "开启问题改写",

@@ -145,7 +145,7 @@ func NewReranker(config *RerankerConfig) (Reranker, error) {
 	// Set default ScoreFormat per provider when not explicitly configured
 	if config.Format == "" {
 		switch providerName {
-		case provider.ProviderNvidia:
+		case provider.ProviderNvidia, provider.ProviderGeneric:
 			config.Format = ScoreFormatLogit // Nvidia reranking API returns raw logits
 		case provider.ProviderAliyun, provider.ProviderZhipu, provider.ProviderJina:
 			config.Format = ScoreFormatProbability // Known to return probabilities in [0, 1]

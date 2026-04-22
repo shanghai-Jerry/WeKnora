@@ -35,6 +35,15 @@ templates:
             "dimensions": ["dimension1", "dimension2"],
             "merged_search_string": "entity name - dimension1 dimension2 (merged professional search string)",
             "reason": "Medical logic explanation for merged retrieval"
+          },
+          {
+            "path_id": 2,
+            "source_entity": "源实体",
+            "target_entity": "目标实体",
+            "interaction_type": "因果 / 协同 / 拮抗 / 伴随",
+            "mechanistic_link": "中间传递机制（如：房水循环受阻、氧化应激等）",
+            "merged_search_string": "跨实体关联检索词",
+            "clinical_significance": "这种关联对临床诊断的意义"
           }
         ],
         "final_search_queries": [
