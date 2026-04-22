@@ -138,12 +138,12 @@
                   <div v-if="idx < visibleReferences.length - 1" class="citation-divider"></div>
                 </div>
                 <div v-if="knowledgeReferences.length > 5" class="citation-more">
-                  还有 {{ knowledgeReferences.length - 5 }} 篇文献...
+                  还有 {{ knowledgeReferences.length - 5 }} 个分片...
                 </div>
               </div>
             </div>
             <div v-show="!citationsExpanded" class="citation-collapsed">
-              <span class="collapsed-hint">{{ knowledgeReferences.length }} 篇引用文献，点击展开查看</span>
+              <span class="collapsed-hint">{{ knowledgeReferences.length }} 个分片，点击展开查看</span>
             </div>
           </template>
 
