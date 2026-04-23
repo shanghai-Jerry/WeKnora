@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from typing import List
 
+import os
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 # --- 1. 定义API的请求和响应数据结构 ---
 
 # 请求体结构保持不变
@@ -33,7 +35,12 @@ class TestFinalResponse(BaseModel):
 
 # --- 2. 加载模型 (在服务启动时执行一次) ---
 print("正在加载模型，请稍候...")
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
 print(f"使用的设备: {device}")
 try:
     # 请确保这里的路径是正确的

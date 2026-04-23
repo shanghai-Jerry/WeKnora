@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 
+	"slices"
+
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
-	"slices"
 )
 
 // classifyRetrievalResults separates retrieval results by retriever type (vector vs keyword).
@@ -35,6 +36,7 @@ func fuseOrDeduplicate(ctx context.Context, vectorResults, keywordResults []*typ
 		logger.Infof(ctx, "Result count after deduplication: %d", len(result))
 		return result
 	}
+
 	// Hybrid: use RRF fusion to merge vector + keyword results
 	result := fuseWithRRF(ctx, vectorResults, keywordResults)
 	logger.Infof(ctx, "Result count after RRF fusion: %d", len(result))
@@ -126,8 +128,15 @@ func fuseWithRRF(ctx context.Context, vectorResults, keywordResults []*types.Ind
 		}
 		vRank, vOk := vectorRanks[chunk.ChunkID]
 		kRank, kOk := keywordRanks[chunk.ChunkID]
-		logger.Debugf(ctx, "RRF rank %d: chunk_id=%s, rrf_score=%.6f, vector_rank=%v(%v), keyword_rank=%v(%v)",
-			i, chunk.ChunkID, chunk.Score, vRank, vOk, kRank, kOk)
+		indexScoreItem, indexOk := chunkInfoMap[chunk.ChunkID]
+		var indexScore float64
+		if indexOk {
+			indexScore = indexScoreItem.GetScore()
+		}
+		if i == 0 {
+			logger.Warnf(ctx, "fuseWithRRF RRF rank %d: chunk_id=%s, rrf_score=%.6f, vector_rank=%v(%v), keyword_rank=%v(%v), index_score=%v",
+				i, chunk.ChunkID, chunk.Score, vRank, vOk, kRank, kOk, indexScore)
+		}
 	}
 
 	return result

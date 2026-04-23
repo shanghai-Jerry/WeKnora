@@ -315,11 +315,11 @@ func removePartialOverlaps(ctx context.Context, results []*types.SearchResult) [
 }
 
 func logSearchScoreSample(ctx context.Context, action string, results []*types.SearchResult) {
-	const maxLogRows = 8
+	const maxLogRows = 2
 	limit := min(maxLogRows, len(results))
 	for i := 0; i < limit; i++ {
 		r := results[i]
-		pipelineInfo(ctx, "Search", action, map[string]interface{}{
+		pipelineDebug(ctx, "Search", action, map[string]interface{}{
 			"index":      i,
 			"chunk_id":   r.ID,
 			"score":      fmt.Sprintf("%.4f", r.Score),
@@ -423,11 +423,21 @@ func (p *PluginSearch) searchByTargets(
 				}
 			}
 
+			queryPreview := ""
+			if len(queryText) > 100 {
+				queryPreview = queryText[:100]
+			} else {
+				queryPreview = queryText
+			}
 			pipelineInfo(ctx, "Search", "group_plan", map[string]interface{}{
 				"model_key":          modelKey,
 				"combined_kb_count":  len(fullKBIDs),
 				"individual_targets": len(knowledgeTargets),
 				"vector_len":         len(queryEmbedding),
+				"query_text":         queryPreview,
+				"vector_threshold":   chatManage.VectorThreshold,
+				"keyword_threshold":  chatManage.KeywordThreshold,
+				"match_count":        chatManage.EmbeddingTopK,
 			})
 
 			var innerWg sync.WaitGroup

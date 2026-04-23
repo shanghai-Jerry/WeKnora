@@ -40,7 +40,7 @@
           <!-- 统一知识网络画布 -->
           <div class="knowledge-network-wrapper">
             <div ref="canvasRef" class="network-canvas" :style="canvasStyle">
-              <svg class="network-svg" :viewBox="`0 0 ${canvasSize.w} ${layout.h}`" xmlns="http://www.w3.org/2000/svg">
+              <svg class="network-svg" :viewBox="`0 0 ${layout.contentW} ${layout.h}`" xmlns="http://www.w3.org/2000/svg">
                 <!-- 关系连线：极浅灰实线，无箭头 -->
                 <g v-for="(edge, idx) in layout.edges" :key="`edge-${idx}`">
                   <line
@@ -247,7 +247,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 
 interface AnalysisPath {
   path_id: number;
@@ -300,23 +300,52 @@ const canvasRef = ref<HTMLDivElement | null>(null);
 const canvasSize = ref({ w: 640 });
 
 const MAX_ENTITIES = 8;
-const ENTITY_R = 28;   // 实体圈半径
-const DIM_R = 8;       // 维度标签近似半径
-const DIM_DIST = 44;   // 维度距实体中心的距离
+const ENTITY_R = 40;   // 实体圈半径（与 CSS 中 center 实体 80px 直径匹配）
+const DIM_R = 16;      // 维度标签近似半径（与 CSS padding+文字宽度匹配）
+const DIM_DIST = 68;   // 维度距实体中心的距离
 
 let ro: ResizeObserver | null = null;
-const initResizeObserver = () => {
-  if (!canvasRef.value || ro) return;
-  ro = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      const cr = entry.contentRect;
-      canvasSize.value = { w: Math.max(280, Math.floor(cr.width)) };
-    }
-  });
-  ro.observe(canvasRef.value);
+
+const updateCanvasSize = () => {
+  if (!canvasRef.value) return;
+  const rect = canvasRef.value.getBoundingClientRect();
+  const w = Math.max(320, Math.floor(rect.width));
+  if (w > 0) {
+    canvasSize.value = { w };
+  }
 };
-onMounted(() => { initResizeObserver(); });
-watch(() => canvasRef.value, (el) => { if (el) initResizeObserver(); });
+
+const initResizeObserver = () => {
+  if (ro) return;
+  ro = new ResizeObserver(() => {
+    updateCanvasSize();
+  });
+  if (canvasRef.value) ro.observe(canvasRef.value);
+};
+
+onMounted(() => {
+  initResizeObserver();
+  updateCanvasSize();
+});
+
+watch(() => canvasRef.value, (el) => {
+  if (el) {
+    initResizeObserver();
+    updateCanvasSize();
+  }
+});
+
+// 关键修复：v-show 切换后 DOM 尺寸从 0 恢复，ResizeObserver 可能滞后，
+// 因此在 expanded 变为 true 后主动刷新一次尺寸
+watch(expanded, async (val) => {
+  if (!val) return;
+  await nextTick();
+  // 给浏览器一次渲染机会后再读尺寸
+  requestAnimationFrame(() => {
+    updateCanvasSize();
+  });
+});
+
 onUnmounted(() => { ro?.disconnect(); });
 
 const hasIntentExplore = computed(() => {
@@ -367,7 +396,7 @@ const hasStages = computed(() => {
 
 const toggleExpanded = () => { expanded.value = !expanded.value; };
 
-const citationsExpanded = ref(true);
+const citationsExpanded = ref(false);
 const toggleCitations = () => {
   if (hasReferences.value) citationsExpanded.value = !citationsExpanded.value;
 };
@@ -402,6 +431,7 @@ interface LayoutResult {
   edges: GraphEdge[];
   dimLines: { x1: number; y1: number; x2: number; y2: number }[];
   h: number;
+  contentW: number;
 }
 
 // 将 analysisPaths 扁平化为唯一实体图
@@ -444,29 +474,44 @@ const centerEntityId = computed(() => {
   return sorted[0].id;
 });
 
-// 统一布局计算：自适应容器宽度，自动推导高度
+// 统一布局计算：固定逻辑坐标，自适应容器缩放
 const layout = computed<LayoutResult>(() => {
   const entities = allEntities.value.slice(0, MAX_ENTITIES);
-  if (entities.length === 0) return { nodes: [], dims: [], edges: [], dimLines: [], h: 260 };
+  if (entities.length === 0) return { nodes: [], dims: [], edges: [], dimLines: [], h: 220, contentW: 320 };
 
-  const w = Math.max(300, canvasSize.value.w);
   const centerId = centerEntityId.value;
 
-  // 临时节点位置（相对坐标，中心为原点）
+  // 节点使用逻辑坐标（中心为原点），不依赖容器像素宽度
   const rawNodes: { id: string; dimensions: string[]; isCenter: boolean; x: number; y: number }[] = [];
   const centerE = entities.find((e) => e.id === centerId) || entities[0];
   rawNodes.push({ id: centerE.id, dimensions: centerE.dimensions, isCenter: true, x: 0, y: 0 });
 
   const periphery = entities.filter((e) => e.id !== centerId);
   const count = periphery.length;
-  let radius = count <= 2 ? 110 : count <= 4 ? 140 : count <= 6 ? 170 : 190;
-  const maxRadius = w / 2 - 28 - DIM_DIST - DIM_R - 16;
-  if (maxRadius > 50) radius = Math.min(radius, maxRadius);
 
-  // 起始角度偏转，避免挤在正上方
-  const startAngle = -Math.PI / 2 - (count > 0 ? Math.PI / count : 0);
+  // 固定半径，保证节点不重叠、不拥挤
+  // 实体半径 40（CSS 中最大实体直径 80px），两实体中心距至少 2*40 + 30 = 110
+  // 加上维度标签后，半径需更大
+  let radius: number;
+  if (count === 0) radius = 0;
+  else if (count === 1) radius = 150;
+  else if (count === 2) radius = 170;
+  else if (count <= 4) radius = 180;
+  else if (count <= 6) radius = 200;
+  else radius = 220;
+
+  // 起始角度：1个放右侧，2个左右对称，3个均匀，更多圆周
+  let startAngle = 0;
+  if (count === 1) {
+    startAngle = 0; // 右侧
+  } else if (count === 2) {
+    startAngle = Math.PI; // 180° 开始：左、右
+  } else {
+    startAngle = -Math.PI / 2 - Math.PI / count;
+  }
+
   periphery.forEach((e, i) => {
-    const angle = startAngle + (2 * Math.PI * i) / count;
+    const angle = startAngle + (2 * Math.PI * i) / Math.max(count, 1);
     rawNodes.push({
       id: e.id,
       dimensions: e.dimensions,
@@ -476,17 +521,25 @@ const layout = computed<LayoutResult>(() => {
     });
   });
 
-  // 维度节点：外围实体朝外发散，中心实体均匀分布
+  // 维度节点：中心朝上，外围朝外
   const rawDims: { label: string; parentId: string; x: number; y: number }[] = [];
   rawNodes.forEach((node) => {
     const dimList = node.dimensions.slice(0, 4);
     if (dimList.length === 0) return;
-    const nodeAngle = node.isCenter
-      ? -Math.PI / 2
-      : Math.atan2(node.y, node.x);
+
+    let baseAngle: number;
+    if (node.isCenter) {
+      baseAngle = -Math.PI / 2; // 中心节点维度朝上
+    } else {
+      baseAngle = Math.atan2(node.y, node.x); // 外围节点朝外
+    }
+
+    // 当只有1个外围节点在右侧时，维度标签朝右上/右下散开，避免和中心节点维度重叠
+    const spread = Math.min(Math.PI / 2.5, Math.PI / Math.max(dimList.length, 1));
     dimList.forEach((d, i) => {
-      const spread = Math.min(Math.PI / 2.2, Math.PI / Math.max(dimList.length, 1));
-      const angle = nodeAngle - spread / 2 + (spread * i) / Math.max(dimList.length - 1, 1);
+      const angle = dimList.length === 1
+        ? baseAngle
+        : baseAngle - spread / 2 + (spread * i) / (dimList.length - 1);
       rawDims.push({
         label: d,
         parentId: node.id,
@@ -496,21 +549,27 @@ const layout = computed<LayoutResult>(() => {
     });
   });
 
-  // 计算内容边界框
+  // 计算内容边界框（考虑文字宽度）
   let minX = 0, maxX = 0, minY = 0, maxY = 0;
   rawNodes.forEach((n) => {
-    minX = Math.min(minX, n.x - ENTITY_R); maxX = Math.max(maxX, n.x + ENTITY_R);
-    minY = Math.min(minY, n.y - ENTITY_R); maxY = Math.max(maxY, n.y + ENTITY_R);
+    minX = Math.min(minX, n.x - ENTITY_R - 6);
+    maxX = Math.max(maxX, n.x + ENTITY_R + 6);
+    minY = Math.min(minY, n.y - ENTITY_R - 6);
+    maxY = Math.max(maxY, n.y + ENTITY_R + 6);
   });
   rawDims.forEach((d) => {
-    minX = Math.min(minX, d.x - DIM_R); maxX = Math.max(maxX, d.x + DIM_R);
-    minY = Math.min(minY, d.y - DIM_R); maxY = Math.max(maxY, d.y + DIM_R);
+    const textW = Math.max(28, d.label.length * 13 + 10); // 估算标签宽度
+    minX = Math.min(minX, d.x - textW / 2 - 6);
+    maxX = Math.max(maxX, d.x + textW / 2 + 6);
+    minY = Math.min(minY, d.y - 12 - 6);
+    maxY = Math.max(maxY, d.y + 12 + 6);
   });
 
-  const padX = 22, padY = 26;
+  const padX = 28, padY = 30;
   const offsetX = padX - minX;
   const offsetY = padY - minY;
-  const finalH = maxY - minY + padY * 2;
+  const contentW = maxX - minX + padX * 2;
+  const contentH = maxY - minY + padY * 2;
 
   // 应用偏移得到最终坐标
   const nodes: GraphNode[] = rawNodes.map((n) => ({ ...n, x: n.x + offsetX, y: n.y + offsetY }));
@@ -562,12 +621,22 @@ const layout = computed<LayoutResult>(() => {
     });
   });
 
-  return { nodes, dims, edges, dimLines, h: Math.max(260, Math.ceil(finalH)) };
+  return {
+    nodes,
+    dims,
+    edges,
+    dimLines,
+    h: Math.max(220, Math.ceil(contentH)),
+    contentW: Math.max(320, Math.ceil(contentW)),
+  };
 });
 
+// 画布宽度和 viewBox 保持一致（逻辑像素 = CSS 像素），
+// 这样 SVG 内的连线和 HTML overlay 的节点位置才能 1:1 对齐
 const canvasStyle = computed(() => ({
-  width: `${canvasSize.value.w}px`,
+  width: `${layout.value.contentW}px`,
   height: `${layout.value.h}px`,
+  margin: '0 auto',
 }));
 
 const getRelevanceLabel = (score: number) => {
@@ -716,6 +785,8 @@ const truncateContent = (content: string) => {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  overflow-x: auto;
+  width: 100%;
 }
 
 .network-canvas {
@@ -736,8 +807,8 @@ const truncateContent = (content: string) => {
 
 .network-entity {
   position: absolute;
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -745,23 +816,25 @@ const truncateContent = (content: string) => {
   text-align: center;
   transform: translate(-50%, -50%);
   z-index: 2;
-  background: #f0fafa;
-  border: 1.5px solid #c8e0e0;
-  color: #3d6b6b;
+  background: #f0f7f7;
+  border: 1.5px solid #cce0e0;
+  color: #4a7a7a;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: all 0.2s ease;
   &.is-center {
-    width: 76px;
-    height: 76px;
-    background: #e0f5f5;
-    border-color: #a8d0d0;
-    color: #2d5b5b;
+    width: 80px;
+    height: 80px;
+    background: #e4f2f2;
+    border-color: #b0d0d0;
+    color: #356060;
     .entity-text { font-size: 13px; font-weight: 700; }
   }
   .entity-text {
     font-size: 11px;
     font-weight: 600;
-    line-height: 1.2;
+    line-height: 1.25;
     word-break: break-word;
-    padding: 3px;
+    padding: 4px;
   }
 }
 
@@ -769,17 +842,19 @@ const truncateContent = (content: string) => {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 2;
-  background: #f7f7f7;
-  border: 1px solid #e0e0e0;
-  color: #999;
+  background: #fafafa;
+  border: 1px solid #e4e4e4;
+  color: #a0a0a0;
   border-radius: 10px;
-  padding: 2px 7px;
-  min-width: 18px;
+  padding: 2px 8px;
+  min-width: 20px;
   text-align: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
   .dim-text {
     font-size: 10px;
     line-height: 1.3;
     word-break: break-word;
+    white-space: nowrap;
   }
 }
 

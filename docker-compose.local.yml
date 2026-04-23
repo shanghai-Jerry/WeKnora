@@ -1,6 +1,6 @@
 services:
   rerank:
-    image: jerryyouinshanhai/weknora-bgerank-rerank-bge-m3-arm64-modelpreload:1.0.2
+    image: jerryyouinshanhai/weknora-bgerank-rerank-bge-m3-arm64-modelpreload:1.0.3
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile.rerank

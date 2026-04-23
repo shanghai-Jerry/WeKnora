@@ -39,7 +39,7 @@ func (p *PluginMerge) ActivationEvents() []types.EventType {
 //  5. Group by knowledge source + chunk type, merge overlapping ranges
 //  6. Populate FAQ answers
 //  7. Expand short contexts with neighboring chunks
-//  7.5. Re-merge overlapping ranges introduced by expansion
+//     7.5. Re-merge overlapping ranges introduced by expansion
 //  8. Final deduplication (ID + signature + partial content overlap)
 func (p *PluginMerge) OnEvent(ctx context.Context,
 	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
@@ -93,6 +93,10 @@ func (p *PluginMerge) OnEvent(ctx context.Context,
 	mergedChunks = removePartialOverlaps(ctx, mergedChunks)
 
 	chatManage.MergeResult = mergedChunks
+
+	pipelineInfo(ctx, "Merge", "final_output", map[string]interface{}{
+		"chunk_cnt": len(mergedChunks),
+	})
 	return next()
 }
 
@@ -158,7 +162,7 @@ func (p *PluginMerge) groupAndMergeOverlapping(ctx context.Context, results []*t
 		)
 	}
 
-	pipelineInfo(ctx, "Merge", "group_summary", map[string]interface{}{
+	pipelineDebug(ctx, "Merge", "group_summary", map[string]interface{}{
 		"knowledge_cnt": len(knowledgeGroup),
 	})
 
@@ -175,7 +179,7 @@ func (p *PluginMerge) groupAndMergeOverlapping(ctx context.Context, results []*t
 	}
 
 	groupResults := ParallelMap(units, 0, func(_ int, u mergeUnit) []*types.SearchResult {
-		pipelineInfo(ctx, "Merge", "group_process", map[string]interface{}{
+		pipelineDebug(ctx, "Merge", "group_process", map[string]interface{}{
 			"knowledge_id": u.knowledgeID,
 			"chunk_cnt":    len(u.chunks),
 		})
@@ -189,7 +193,7 @@ func (p *PluginMerge) groupAndMergeOverlapping(ctx context.Context, results []*t
 
 		grouped := p.mergeOverlappingChunks(ctx, u.knowledgeID, u.chunks)
 
-		pipelineInfo(ctx, "Merge", "group_output", map[string]interface{}{
+		pipelineDebug(ctx, "Merge", "group_output", map[string]interface{}{
 			"knowledge_id":  u.knowledgeID,
 			"merged_chunks": len(grouped),
 		})
@@ -201,7 +205,7 @@ func (p *PluginMerge) groupAndMergeOverlapping(ctx context.Context, results []*t
 		mergedChunks = append(mergedChunks, g...)
 	}
 
-	pipelineInfo(ctx, "Merge", "output", map[string]interface{}{
+	pipelineDebug(ctx, "Merge", "output", map[string]interface{}{
 		"merged_total": len(mergedChunks),
 	})
 	return mergedChunks

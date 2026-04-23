@@ -32,6 +32,11 @@ func pipelineError(ctx context.Context, stage, action string, fields map[string]
 	common.PipelineError(ctx, stage, action, fields)
 }
 
+// pipelineDebug logs pipeline debug level entries.
+func pipelineDebug(ctx context.Context, stage, action string, fields map[string]interface{}) {
+	common.PipelineDebug(ctx, stage, action, fields)
+}
+
 // prepareChatModel shared logic to prepare chat model and options
 // it gets the chat model and sets up the chat options based on the chat manage.
 func prepareChatModel(ctx context.Context, modelService interfaces.ModelService,

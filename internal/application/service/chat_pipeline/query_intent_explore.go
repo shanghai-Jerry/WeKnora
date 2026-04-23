@@ -28,17 +28,17 @@ type intentExploreOutput struct {
 }
 
 type analysisPath struct {
-	PathID               int      `json:"path_id"`
-	Entity               string   `json:"entity"`
-	Dimensions           []string `json:"dimensions"`
-	MergedSearchString   string   `json:"merged_search_string"`
-	Reason               string   `json:"reason"`
+	PathID             int      `json:"path_id"`
+	Entity             string   `json:"entity"`
+	Dimensions         []string `json:"dimensions"`
+	MergedSearchString string   `json:"merged_search_string"`
+	Reason             string   `json:"reason"`
 	// Relation-type path fields
-	SourceEntity         string   `json:"source_entity"`
-	TargetEntity         string   `json:"target_entity"`
-	InteractionType      string   `json:"interaction_type"`
-	MechanisticLink      string   `json:"mechanistic_link"`
-	ClinicalSignificance string   `json:"clinical_significance"`
+	SourceEntity         string `json:"source_entity"`
+	TargetEntity         string `json:"target_entity"`
+	InteractionType      string `json:"interaction_type"`
+	MechanisticLink      string `json:"mechanistic_link"`
+	ClinicalSignificance string `json:"clinical_significance"`
 }
 
 func NewPluginQueryIntentExplore(
@@ -207,18 +207,18 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 	if chatManage.EventBus != nil {
 		paths := make([]*event.AnalysisPath, len(output.AnalysisPaths))
 		for i, path := range output.AnalysisPaths {
-		paths[i] = &event.AnalysisPath{
-			PathID:               path.PathID,
-			Entity:               path.Entity,
-			Dimensions:           path.Dimensions,
-			MergedSearchString:   path.MergedSearchString,
-			Reason:               path.Reason,
-			SourceEntity:         path.SourceEntity,
-			TargetEntity:         path.TargetEntity,
-			InteractionType:      path.InteractionType,
-			MechanisticLink:      path.MechanisticLink,
-			ClinicalSignificance: path.ClinicalSignificance,
-		}
+			paths[i] = &event.AnalysisPath{
+				PathID:               path.PathID,
+				Entity:               path.Entity,
+				Dimensions:           path.Dimensions,
+				MergedSearchString:   path.MergedSearchString,
+				Reason:               path.Reason,
+				SourceEntity:         path.SourceEntity,
+				TargetEntity:         path.TargetEntity,
+				InteractionType:      path.InteractionType,
+				MechanisticLink:      path.MechanisticLink,
+				ClinicalSignificance: path.ClinicalSignificance,
+			}
 		}
 		chatManage.EventBus.Emit(ctx, types.Event{
 			Type:      types.EventType(event.EventQueryIntentExplore),
@@ -265,7 +265,7 @@ func (p *PluginQueryIntentExplore) searchMultiplePaths(ctx context.Context,
 	pipelineInfo(ctx, "QueryIntentExplore", "multi_search_done", map[string]interface{}{
 		"session_id":   chatManage.SessionID,
 		"query_count":  len(queries),
-		"result_count": len(allResults),
+		"result_count": len(chatManage.SearchResult),
 	})
 }
 

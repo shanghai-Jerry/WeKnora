@@ -3,8 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
+	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -147,6 +150,14 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 	}
 	logger.Infof(ctx, "Result count before fusion: vector=%d, keyword=%d", len(vectorResults), len(keywordResults))
 
+	// Sort results by score in descending order
+	slices.SortFunc(vectorResults, sortByScoreDesc)
+	slices.SortFunc(keywordResults, sortByScoreDesc)
+
+	// 查看排序后的结果
+	logRetrivalScoreSample(ctx, "vectorRetrieval", vectorResults)
+	logRetrivalScoreSample(ctx, "keywordRetrieval", keywordResults)
+
 	deduplicatedChunks := fuseOrDeduplicate(ctx, vectorResults, keywordResults)
 
 	kb.EnsureDefaults()
@@ -160,6 +171,27 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 	}
 
 	return s.processSearchResults(ctx, deduplicatedChunks, params.SkipContextEnrichment)
+}
+
+func logRetrivalScoreSample(ctx context.Context, action string, results []*types.IndexWithScore) {
+	const maxLogRows = 2
+	limit := min(maxLogRows, len(results))
+	for i := 0; i < limit; i++ {
+		r := results[i]
+		common.PipelineInfo(ctx, "HybridSearch", action, map[string]interface{}{
+			"index":      i,
+			"chunk_id":   r.ChunkID,
+			"score":      fmt.Sprintf("%.4f", r.Score),
+			"match_type": r.MatchType,
+		})
+	}
+	if len(results) > limit {
+		common.PipelineInfo(ctx, "HybridSearch", action, map[string]interface{}{
+			"total":     len(results),
+			"logged":    limit,
+			"truncated": len(results) - limit,
+		})
+	}
 }
 
 // buildRetrievalParams constructs the vector and keyword retrieval parameters
@@ -177,22 +209,22 @@ func (s *knowledgeBaseService) buildRetrievalParams(
 
 	// Add vector retrieval params if supported
 	if retrieveEngine.SupportRetriever(types.VectorRetrieverType) && !params.DisableVectorMatch {
-		logger.Info(ctx, "Vector retrieval supported, preparing vector retrieval parameters")
+		logger.Debugf(ctx, "Vector retrieval supported, preparing vector retrieval parameters")
 
 		var queryEmbedding []float32
 
 		if len(params.QueryEmbedding) > 0 {
 			queryEmbedding = params.QueryEmbedding
-			logger.Infof(ctx, "Using pre-computed query embedding, vector length: %d", len(queryEmbedding))
+			logger.Debugf(ctx, "Using pre-computed query embedding, vector length: %d", len(queryEmbedding))
 		} else {
-			logger.Infof(ctx, "Getting embedding model, model ID: %s", kb.EmbeddingModelID)
+			logger.Debugf(ctx, "Getting embedding model, model ID: %s", kb.EmbeddingModelID)
 
 			// Check if this is a cross-tenant shared knowledge base
 			// For shared KB, we must use the source tenant's embedding model to ensure vector compatibility
 			var embeddingModel embedding.Embedder
 			var err error
 			if kb.TenantID != currentTenantID {
-				logger.Infof(ctx, "Cross-tenant knowledge base detected, using source tenant's embedding model. KB tenant: %d, current tenant: %d", kb.TenantID, currentTenantID)
+				logger.Debugf(ctx, "Cross-tenant knowledge base detected, using source tenant's embedding model. KB tenant: %d, current tenant: %d", kb.TenantID, currentTenantID)
 				embeddingModel, err = s.modelService.GetEmbeddingModelForTenant(ctx, kb.EmbeddingModelID, kb.TenantID)
 			} else {
 				embeddingModel, err = s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)
@@ -202,15 +234,15 @@ func (s *knowledgeBaseService) buildRetrievalParams(
 				logger.Errorf(ctx, "Failed to get embedding model, model ID: %s, error: %v", kb.EmbeddingModelID, err)
 				return nil, err
 			}
-			logger.Infof(ctx, "Embedding model retrieved: %v", embeddingModel)
+			logger.Debugf(ctx, "Embedding model retrieved: %v", embeddingModel)
 
-			logger.Info(ctx, "Starting to generate query embedding")
+			logger.Debugf(ctx, "Starting to generate query embedding")
 			queryEmbedding, err = embeddingModel.Embed(ctx, params.QueryText)
 			if err != nil {
 				logger.Errorf(ctx, "Failed to embed query text, query text: %s, error: %v", params.QueryText, err)
 				return nil, err
 			}
-			logger.Infof(ctx, "Query embedding generated successfully, embedding vector length: %d", len(queryEmbedding))
+			logger.Debugf(ctx, "Query embedding generated successfully, embedding vector length: %d", len(queryEmbedding))
 		}
 
 		vectorParams := types.RetrieveParams{
