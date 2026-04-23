@@ -794,7 +794,7 @@ export default {
     rerankTopKLabel: 'Rerank Top K',
     rerankTopKDescription: 'Maximum number of results kept after reranking',
     rerankThresholdLabel: 'Rerank Threshold',
-    rerankThresholdDescription: 'Minimum score threshold for reranking (-10 to 10)',
+    rerankThresholdDescription: 'Minimum relevance probability for reranking (0 to 1, default 0.2)',
     rerankModelLabel: 'Rerank Model',
     rerankModelDescription: 'Select the model for reranking search results',
     rerankModelRequired: 'Please select a Rerank model. Search requires this model to rerank results.',
@@ -1896,6 +1896,7 @@ export default {
     vectorRetrieval: 'Vector Retrieval Query',
     keywordRetrieval: 'Keyword Retrieval Query',
     queryExpansion: 'Query Expansion',
+    evidenceRetrieval: 'Evidence Retrieval Completed',
   },
   tenant: {
     title: 'Tenant Information',
@@ -2467,7 +2468,7 @@ export default {
     },
     rerankThreshold: {
       label: 'ReRank Threshold',
-      desc: 'Minimum score required after re-ranking'
+      desc: 'Minimum relevance probability for re-ranking (0-1)'
     },
     enableRewrite: {
       label: 'Enable Query Rewrite',

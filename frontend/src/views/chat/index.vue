@@ -621,7 +621,8 @@ onChunk((data) => {
         data.response_type === 'retrieval_query' ||
         data.response_type === 'query_expansion' ||
         data.response_type === 'vector_query' ||
-        data.response_type === 'keyword_query'
+        data.response_type === 'keyword_query' ||
+        data.response_type === 'query_intent_explore'
     )) {
         // 首先尝试通过 request_id 或 id 查找消息
         let existingMessage = messagesList.findLast((item) => item.request_id === data.id || item.id === data.id);
@@ -671,6 +672,14 @@ onChunk((data) => {
         } else if (data.response_type === 'query_expansion') {
             existingMessage.pipeline_stages.expansions = data.data?.expansions || [];
             console.log('[Pipeline] Query Expansion:', existingMessage.pipeline_stages.expansions);
+        } else if (data.response_type === 'query_intent_explore') {
+            existingMessage.pipeline_stages.intentExplore = {
+                originalQuery: data.data?.original_query || '',
+                analysisPaths: data.data?.analysis_paths || [],
+                finalSearchQueries: data.data?.final_search_queries || [],
+                totalSearchCount: data.data?.total_search_count || 0
+            };
+            console.log('[Pipeline] Query Intent Explore:', existingMessage.pipeline_stages.intentExplore);
         }
         
         // Force reactivity update

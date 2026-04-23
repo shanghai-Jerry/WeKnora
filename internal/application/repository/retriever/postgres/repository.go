@@ -164,7 +164,7 @@ func (g *pgRepository) Retrieve(ctx context.Context, params types.RetrieveParams
 func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
-	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d", params.Query, params.TopK)
+	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d, threshold=%v", params.Query, params.TopK, params.Threshold)
 	conds := make([]clause.Expression, 0)
 
 	// KnowledgeBaseIDs and KnowledgeIDs use AND logic
@@ -207,7 +207,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	}})
 
 	var embeddingDBList []pgVectorWithScore
-	err := g.db.WithContext(ctx).Clauses(conds...).Debug().
+	err := g.db.WithContext(ctx).Clauses(conds...).
 		Select([]string{
 			"paradedb.score(id) as score",
 			"id",
@@ -242,7 +242,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 		}
 	}
 	if len(results) > maxKeywordResultLog {
-		logger.GetLogger(ctx).Debugf(
+		logger.GetLogger(ctx).Infof(
 			"[Postgres] Keywords result summary: total=%d logged=%d truncated=%d",
 			len(results), maxKeywordResultLog, len(results)-maxKeywordResultLog,
 		)
@@ -397,17 +397,22 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	logger.GetLogger(ctx).Infof("[Postgres] Vector retrieval found %d results", len(embeddingDBList))
 	results := make([]*types.IndexWithScore, len(embeddingDBList))
 	const maxVectorResultLog = 8
+	matchThresholdCount := 0
 	for i := range embeddingDBList {
 		results[i] = fromDBVectorEmbeddingWithScore(&embeddingDBList[i], types.MatchTypeEmbedding)
 		if i < maxVectorResultLog {
 			logger.GetLogger(ctx).Debugf("[Postgres] Vector search result %d: chunk_id %s, score %.4f",
 				i, results[i].ChunkID, results[i].Score)
 		}
+
+		if results[i].Score >= params.Threshold {
+			matchThresholdCount++
+		}
 	}
 	if len(results) > maxVectorResultLog {
-		logger.GetLogger(ctx).Debugf(
-			"[Postgres] Vector search result summary: total=%d logged=%d truncated=%d",
-			len(results), maxVectorResultLog, len(results)-maxVectorResultLog,
+		logger.GetLogger(ctx).Infof(
+			"[Postgres] Vector search result summary: total=%d logged=%d truncated=%d, matchThresholdCount=%d",
+			len(results), maxVectorResultLog, len(results)-maxVectorResultLog, matchThresholdCount,
 		)
 	}
 	return []*types.RetrieveResult{

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/searchutil"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -184,7 +186,7 @@ func (p *PluginRerank) OnEvent(ctx context.Context,
 	// Log composite top scores and MMR selection summary
 	topN := min(3, len(reranked))
 	for i := 0; i < topN; i++ {
-		pipelineInfo(ctx, "Rerank", "composite_top", map[string]interface{}{
+		pipelineDebug(ctx, "Rerank", "composite_top", map[string]interface{}{
 			"rank":        i + 1,
 			"chunk_id":    reranked[i].ID,
 			"base_score":  reranked[i].Metadata["base_score"],
@@ -234,24 +236,28 @@ func (p *PluginRerank) rerank(ctx context.Context,
 	}
 	passages = cleanPassages
 	candidates = cleanCandidates
-
-	rerankResp, err := rerankModel.Rerank(ctx, query, passages)
-	if err != nil {
-		pipelineError(ctx, "Rerank", "model_call", map[string]interface{}{
-			"query_variant": query,
-			"error":         err.Error(),
-		})
-		return nil
+	rerankResp := make([]rerank.RankResult, 0)
+	for chunkGroup := range slices.Chunk(passages, 20) {
+		logger.Debugf(ctx, "Rerank chunkGroup: %v", chunkGroup)
+		rerankBatchResps, err := rerankModel.Rerank(ctx, query, chunkGroup)
+		if err != nil {
+			pipelineError(ctx, "Rerank", "model_call", map[string]interface{}{
+				"query_variant": query,
+				"error":         err.Error(),
+			})
+			return nil
+		}
+		rerankResp = append(rerankResp, rerankBatchResps...)
 	}
 
 	// Log top scores for debugging
 	pipelineInfo(ctx, "Rerank", "threshold", map[string]interface{}{
 		"threshold": chatManage.RerankThreshold,
 	})
-	logged := min(5, len(rerankResp))
+	logged := min(2, len(rerankResp))
 	for i := range logged {
 		if rerankResp[i].Index < len(candidates) {
-			pipelineInfo(ctx, "Rerank", "top_score", map[string]interface{}{
+			pipelineDebug(ctx, "Rerank", "top_score", map[string]interface{}{
 				"rank":        i + 1,
 				"score":       rerankResp[i].RelevanceScore,
 				"chunk_id":    candidates[rerankResp[i].Index].ID,
@@ -582,7 +588,7 @@ func getEnrichedPassage(ctx context.Context, result *types.SearchResult) string 
 }
 
 func logRerankInputScoreSample(ctx context.Context, results []*types.SearchResult) {
-	const maxLogRows = 8
+	const maxLogRows = 2
 	limit := min(maxLogRows, len(results))
 	for i := 0; i < limit; i++ {
 		sr := results[i]

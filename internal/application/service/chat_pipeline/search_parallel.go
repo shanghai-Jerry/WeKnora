@@ -164,8 +164,16 @@ func (p *PluginSearchParallel) OnEvent(ctx context.Context,
 
 	errs := RunParallel(tasks...)
 
-	// Merge results from both searches
-	chatManage.SearchResult = append(chunkCM.SearchResult, entityCM.SearchResult...)
+	pipelineInfo(ctx, "SearchParallel", "complete-before", map[string]interface{}{
+		"session_id":           chatManage.SessionID,
+		"chunk_results":        len(chunkCM.SearchResult),
+		"entity_results":       len(entityCM.SearchResult),
+		"input_search_results": len(chatManage.SearchResult),
+		"error_count":          len(errs),
+	})
+
+	chatManage.SearchResult = append(chatManage.SearchResult, chunkCM.SearchResult...)
+	chatManage.SearchResult = append(chatManage.SearchResult, entityCM.SearchResult...)
 	chatManage.SearchResult = removeDuplicateResults(chatManage.SearchResult)
 
 	for name, err := range errs {
@@ -173,11 +181,12 @@ func (p *PluginSearchParallel) OnEvent(ctx context.Context,
 	}
 
 	pipelineInfo(ctx, "SearchParallel", "complete", map[string]interface{}{
-		"session_id":     chatManage.SessionID,
-		"chunk_results":  len(chunkCM.SearchResult),
-		"entity_results": len(entityCM.SearchResult),
-		"total_results":  len(chatManage.SearchResult),
-		"error_count":    len(errs),
+		"session_id":            chatManage.SessionID,
+		"chunk_results":         len(chunkCM.SearchResult),
+		"entity_results":        len(entityCM.SearchResult),
+		"total_results":         len(chatManage.SearchResult),
+		"output_search_results": len(chatManage.SearchResult),
+		"error_count":           len(errs),
 	})
 
 	if len(chatManage.SearchResult) == 0 {

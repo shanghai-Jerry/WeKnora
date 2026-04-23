@@ -1,6 +1,13 @@
 <template>
     <div class="bot_msg">
         <div style="display: flex;flex-direction: column; gap:8px">
+            <!-- Pipeline Stages Display (non-Agent mode only) - 显示在最上面 -->
+            <PipelineStagesDisplay
+                v-if="!session.isAgentMode && session.pipeline_stages"
+                :pipeline-stages="session.pipeline_stages"
+                :knowledge-references="session.knowledge_references"
+                :is_completed="session.is_completed"
+            ></PipelineStagesDisplay>
             <!-- 显示@的知识库和文件（非 Agent 模式下显示） -->
             <div v-if="!session.isAgentMode && mentionedItems && mentionedItems.length > 0" class="mentioned_items">
                 <span
@@ -57,11 +64,7 @@
             </div>
             <div v-if="isImgLoading" class="img_loading"><t-loading size="small"></t-loading><span>{{ $t('common.loading') }}</span></div>
         </div>
-        <!-- Pipeline Stages Display (non-Agent mode only) -->
-        <PipelineStagesDisplay
-            v-if="!session.isAgentMode && session.pipeline_stages"
-            :pipeline-stages="session.pipeline_stages"
-        ></PipelineStagesDisplay>
+        <!-- Pipeline Stages Display 已移到顶部 -->
         <picturePreview :reviewImg="reviewImg" :reviewUrl="reviewUrl" @closePreImg="closePreImg"></picturePreview>
     </div>
 </template>

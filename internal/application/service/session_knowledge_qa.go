@@ -110,10 +110,12 @@ func (s *sessionService) KnowledgeQA(
 			FallbackStrategy:        fallbackStrategy,
 			FallbackResponse:        s.cfg.Conversation.FallbackResponse,
 			FallbackPrompt:          s.cfg.Conversation.FallbackPrompt,
-			EnableRewrite:           s.cfg.Conversation.EnableRewrite,
-			EnableQueryExpansion:    s.cfg.Conversation.EnableQueryExpansion,
-			RewritePromptSystem:     s.cfg.Conversation.RewritePromptSystem,
-			RewritePromptUser:       s.cfg.Conversation.RewritePromptUser,
+			EnableRewrite:             s.cfg.Conversation.EnableRewrite,
+			EnableQueryExpansion:      s.cfg.Conversation.EnableQueryExpansion,
+			EnableQueryIntentExplore: s.cfg.Conversation.EnableQueryIntentExplore,
+			RewritePromptSystem:       s.cfg.Conversation.RewritePromptSystem,
+			RewritePromptUser:         s.cfg.Conversation.RewritePromptUser,
+			IntentExplorePromptID:  s.cfg.Conversation.IntentExplorePromptID,
 			WebSearchEnabled:        req.WebSearchEnabled,
 			WebSearchProviderID:     s.resolveWebSearchProviderID(ctx, req, retrievalTenantID),
 			WebFetchEnabled:         s.resolveWebFetchEnabled(req),
@@ -168,6 +170,7 @@ func (s *sessionService) KnowledgeQA(
 		pipeline = types.NewPipelineBuilder().
 			Add(types.LOAD_HISTORY).
 			Add(types.QUERY_UNDERSTAND).
+			AddIf(chatManage.EnableQueryIntentExplore, types.QUERY_INTENT_EXPLORE).
 			Add(types.CHUNK_SEARCH_PARALLEL).
 			Add(types.CHUNK_RERANK).
 			AddIf(req.WebSearchEnabled, types.WEB_FETCH).

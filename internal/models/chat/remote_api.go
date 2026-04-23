@@ -531,7 +531,7 @@ func (c *RemoteAPIChat) processStream(ctx context.Context, stream *openai.ChatCo
 			}
 			return
 		}
-		logger.Infof(ctx, "[LLM Stream] Recv model=%s", c.modelName)
+		// logger.Infof(ctx, "[LLM Stream] Recv model=%s", c.modelName)
 		if response.Usage != nil {
 			state.usage = &types.TokenUsage{
 				PromptTokens:     response.Usage.PromptTokens,
@@ -541,7 +541,7 @@ func (c *RemoteAPIChat) processStream(ctx context.Context, stream *openai.ChatCo
 		}
 
 		if len(response.Choices) > 0 {
-			logger.Infof(ctx, "[LLM Stream] processStreamDelta model=%s, response.Choices=%d", c.modelName, len(response.Choices))
+			// logger.Infof(ctx, "[LLM Stream] processStreamDelta model=%s, response.Choices=%d", c.modelName, len(response.Choices))
 			c.processStreamDelta(ctx, &response.Choices[0], state, streamChan, response.Choices[0].Delta.ReasoningContent)
 		}
 	}
