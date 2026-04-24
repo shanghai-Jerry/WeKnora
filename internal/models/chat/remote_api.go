@@ -459,7 +459,7 @@ func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint stri
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	logger.Infof(ctx, "[LLM Stream] model=%s, endpoint=%s, customReq=%v", c.modelName, endpoint, string(jsonData))
+	logger.Debugf(ctx, "[LLM Stream] model=%s, endpoint=%s, customReq=%v", c.modelName, endpoint, string(jsonData))
 
 	if endpoint == "" {
 		endpoint = c.baseURL + "/chat/completions"

@@ -174,6 +174,9 @@ type CustomAgentConfig struct {
 	// ===== Advanced Settings (mainly for normal mode) =====
 	// Whether to enable query expansion
 	EnableQueryExpansion bool `yaml:"enable_query_expansion" json:"enable_query_expansion"`
+	// Whether to enable query intent explore (multi-path vector retrieval)
+	// nil = fall back to global config, false = explicitly disabled, true = explicitly enabled
+	EnableQueryIntentExplore *bool `yaml:"enable_query_intent_explore" json:"enable_query_intent_explore,omitempty"`
 	// Whether to enable query rewrite for multi-turn conversations
 	EnableRewrite bool `yaml:"enable_rewrite" json:"enable_rewrite"`
 	// Rewrite prompt system message

@@ -30,12 +30,12 @@ type PipelineRequest struct {
 	FallbackPrompt   string           `json:"fallback_prompt"`
 
 	// Rewrite parameters
-	EnableRewrite          bool   `json:"enable_rewrite"`
-	EnableQueryExpansion   bool   `json:"enable_query_expansion"`
-	EnableQueryIntentExplore bool `json:"enable_query_intent_explore"`
-	RewritePromptSystem    string `json:"rewrite_prompt_system"`
-	RewritePromptUser      string `json:"rewrite_prompt_user"`
-	IntentExplorePromptID  string `json:"intent_explore_prompt_id"`
+	EnableRewrite            bool   `json:"enable_rewrite"`
+	EnableQueryExpansion     bool   `json:"enable_query_expansion"`
+	EnableQueryIntentExplore bool   `json:"enable_query_intent_explore"`
+	RewritePromptSystem      string `json:"rewrite_prompt_system"`
+	RewritePromptUser        string `json:"rewrite_prompt_user"`
+	IntentExplorePromptID    string `json:"intent_explore_prompt_id"`
 
 	// FAQ strategy
 	FAQPriorityEnabled       bool    `json:"-"`
@@ -90,20 +90,20 @@ type PipelineState struct {
 	Intent       QueryIntent `json:"intent,omitempty"`
 	History      []*History  `json:"history,omitempty"`
 
-	SearchResult           []*SearchResult   `json:"-"`
-	RerankResult           []*SearchResult   `json:"-"`
-	MergeResult            []*SearchResult   `json:"-"`
-	Entity                 []string          `json:"-"`
-	EntityKBIDs            []string          `json:"-"`
-	EntityKnowledge        map[string]string `json:"-"`
-	GraphResult            *GraphData        `json:"-"`
-	UserContent            string            `json:"-"`
-	RenderedContexts       string            `json:"-"`
-	ChatResponse           *ChatResponse     `json:"-"`
-	ImageDescription       string            `json:"-"`
-	QuotedContext          string            `json:"-"` // Quoted message text, injected at LLM prompt stage
-	SystemPromptOverride   string            `json:"-"`
-	IntentExploreData      *IntentExploreData `json:"intent_explore_data,omitempty"`
+	SearchResult         []*SearchResult    `json:"-"`
+	RerankResult         []*SearchResult    `json:"-"`
+	MergeResult          []*SearchResult    `json:"-"`
+	Entity               []string           `json:"-"`
+	EntityKBIDs          []string           `json:"-"`
+	EntityKnowledge      map[string]string  `json:"-"`
+	GraphResult          *GraphData         `json:"-"`
+	UserContent          string             `json:"-"`
+	RenderedContexts     string             `json:"-"`
+	ChatResponse         *ChatResponse      `json:"-"`
+	ImageDescription     string             `json:"-"`
+	QuotedContext        string             `json:"-"` // Quoted message text, injected at LLM prompt stage
+	SystemPromptOverride string             `json:"-"`
+	IntentExploreData    *IntentExploreData `json:"intent_explore_data,omitempty"`
 }
 
 // PipelineContext holds runtime context for the current pipeline execution.
@@ -226,11 +226,11 @@ func (c *ChatManage) Clone() *ChatManage {
 type EventType string
 
 const (
-	LOAD_HISTORY             EventType = "load_history"
+	LOAD_HISTORY           EventType = "load_history"
 	QUERY_UNDERSTAND       EventType = "query_understand"
-	QUERY_INTENT_EXPLORE    EventType = "query_intent_explore"
+	QUERY_INTENT_EXPLORE   EventType = "query_intent_explore"
 	CHUNK_SEARCH           EventType = "chunk_search"
-	CHUNK_SEARCH_PARALLEL   EventType = "chunk_search_parallel"
+	CHUNK_SEARCH_PARALLEL  EventType = "chunk_search_parallel"
 	ENTITY_SEARCH          EventType = "entity_search"
 	CHUNK_RERANK           EventType = "chunk_rerank"
 	WEB_FETCH              EventType = "web_fetch"
@@ -320,16 +320,16 @@ type AnalysisPath struct {
 	MergedSearchString string   `json:"merged_search_string"`
 	Reason             string   `json:"reason"`
 	// Relation-type path fields
-	SourceEntity       string   `json:"source_entity"`
-	TargetEntity       string   `json:"target_entity"`
-	InteractionType    string   `json:"interaction_type"`
-	MechanisticLink    string   `json:"mechanistic_link"`
+	SourceEntity         string `json:"source_entity"`
+	TargetEntity         string `json:"target_entity"`
+	InteractionType      string `json:"interaction_type"`
+	MechanisticLink      string `json:"mechanistic_link"`
 	ClinicalSignificance string `json:"clinical_significance"`
 }
 
 type IntentExploreData struct {
-	OriginalQuery       string         `json:"original_query"`
-	AnalysisPaths       []*AnalysisPath `json:"analysis_paths"`
-	FinalSearchQueries  []string        `json:"final_search_queries"`
-	TotalSearchCount    int             `json:"total_search_count"`
+	OriginalQuery      string          `json:"original_query"`
+	AnalysisPaths      []*AnalysisPath `json:"analysis_paths"`
+	FinalSearchQueries []string        `json:"final_search_queries"`
+	TotalSearchCount   int             `json:"total_search_count"`
 }

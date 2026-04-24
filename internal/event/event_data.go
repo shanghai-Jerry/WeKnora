@@ -247,22 +247,22 @@ type KeywordQueryData struct {
 
 // AnalysisPath represents one research path in intent exploration
 type AnalysisPath struct {
-	PathID               int      `json:"path_id"`
-	Entity               string   `json:"entity"`
-	Dimensions           []string `json:"dimensions"`
-	MergedSearchString   string   `json:"merged_search_string"`
-	Reason               string   `json:"reason"`
+	PathID             int      `json:"path_id"`
+	Entity             string   `json:"entity"`
+	Dimensions         []string `json:"dimensions"`
+	MergedSearchString string   `json:"merged_search_string"`
+	Reason             string   `json:"reason"`
 	// Relation-type path fields
-	SourceEntity         string   `json:"source_entity"`
-	TargetEntity         string   `json:"target_entity"`
-	InteractionType      string   `json:"interaction_type"`
-	MechanisticLink      string   `json:"mechanistic_link"`
-	ClinicalSignificance string   `json:"clinical_significance"`
+	SourceEntity         string `json:"source_entity"`
+	TargetEntity         string `json:"target_entity"`
+	InteractionType      string `json:"interaction_type"`
+	MechanisticLink      string `json:"mechanistic_link"`
+	ClinicalSignificance string `json:"clinical_significance"`
 }
 
 // QueryIntentExploreData represents multi-vector retrieval intent exploration data
 type QueryIntentExploreData struct {
-	OriginalQuery      string         `json:"original_query"`
+	OriginalQuery      string          `json:"original_query"`
 	AnalysisPaths      []*AnalysisPath `json:"analysis_paths"`
 	FinalSearchQueries []string        `json:"final_search_queries"`
 	TotalSearchCount   int             `json:"total_search_count"`

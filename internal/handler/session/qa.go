@@ -662,7 +662,8 @@ func (h *Handler) runVLMAnalysisIfNeeded(streamCtx *sseStreamContext, reqCtx *qa
 }
 
 // completeAssistantMessage marks an assistant message as complete, updates it,
-// and asynchronously indexes the Q&A pair into the chat history knowledge base.
+// and asynchronously indexes the Q&A pair.
+// PipelineStages are updated in real-time during SSE events via AgentStreamHandler.updateMessagePipelineStages.
 func (h *Handler) completeAssistantMessage(ctx context.Context, assistantMessage *types.Message, userQuery string) {
 	assistantMessage.UpdatedAt = time.Now()
 	assistantMessage.IsCompleted = true

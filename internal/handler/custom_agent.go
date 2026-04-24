@@ -16,24 +16,24 @@ import (
 
 // CustomAgentHandler defines the HTTP handler for custom agent operations
 type CustomAgentHandler struct {
-	service     interfaces.CustomAgentService
+	service      interfaces.CustomAgentService
 	disabledRepo interfaces.TenantDisabledSharedAgentRepository
 }
 
 // NewCustomAgentHandler creates a new custom agent handler instance
 func NewCustomAgentHandler(service interfaces.CustomAgentService, disabledRepo interfaces.TenantDisabledSharedAgentRepository) *CustomAgentHandler {
 	return &CustomAgentHandler{
-		service:     service,
+		service:      service,
 		disabledRepo: disabledRepo,
 	}
 }
 
 // CreateAgentRequest defines the request body for creating an agent
 type CreateAgentRequest struct {
-	Name        string                   `json:"name" binding:"required"`
-	Description string                   `json:"description"`
-	Avatar      string                   `json:"avatar"`
-	Config      types.CustomAgentConfig  `json:"config"`
+	Name        string                  `json:"name" binding:"required"`
+	Description string                  `json:"description"`
+	Avatar      string                  `json:"avatar"`
+	Config      types.CustomAgentConfig `json:"config"`
 }
 
 // UpdateAgentRequest defines the request body for updating an agent

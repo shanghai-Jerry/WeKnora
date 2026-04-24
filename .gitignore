@@ -49,4 +49,5 @@ frontend/.vite
 frontend/chrome-extension/
 WeKnora-Chrome-Extension
 # local files
-*local*
+*.local.*
+*_local_*

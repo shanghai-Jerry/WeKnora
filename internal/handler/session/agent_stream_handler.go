@@ -22,6 +22,7 @@ type AgentStreamHandler struct {
 	requestID          string
 	assistantMessage   *types.Message
 	streamManager      interfaces.StreamManager
+	messageService     interfaces.MessageService // For real-time message updates
 
 	eventBus *event.EventBus
 
@@ -38,6 +39,7 @@ func NewAgentStreamHandler(
 	sessionID, assistantMessageID, requestID string,
 	assistantMessage *types.Message,
 	streamManager interfaces.StreamManager,
+	messageService interfaces.MessageService,
 	eventBus *event.EventBus,
 ) *AgentStreamHandler {
 	return &AgentStreamHandler{
@@ -47,6 +49,7 @@ func NewAgentStreamHandler(
 		requestID:          requestID,
 		assistantMessage:   assistantMessage,
 		streamManager:      streamManager,
+		messageService:     messageService,
 		eventBus:           eventBus,
 		knowledgeRefs:      make([]*types.SearchResult, 0),
 		eventStartTimes:    make(map[string]time.Time),
@@ -281,6 +284,8 @@ func (h *AgentStreamHandler) handleReferences(ctx context.Context, evt event.Eve
 	}); err != nil {
 		logger.GetLogger(h.ctx).Error("Append references event to stream failed", "error", err)
 	}
+
+	// Real-time update: save references to message
 
 	return nil
 }
@@ -567,6 +572,14 @@ func (h *AgentStreamHandler) handleQueryRewritten(ctx context.Context, evt event
 		logger.GetLogger(h.ctx).Error("Append query_rewritten event to stream failed", "error", err)
 	}
 
+	// Real-time update: save query_understand data to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"queryRewritten": map[string]interface{}{
+			"originalQuery":  data.OriginalQuery,
+			"rewrittenQuery": data.RewrittenQuery,
+		},
+	})
+
 	return nil
 }
 
@@ -592,6 +605,11 @@ func (h *AgentStreamHandler) handleRetrievalQuery(ctx context.Context, evt event
 		logger.GetLogger(h.ctx).Error("Append retrieval_query event to stream failed", "error", err)
 	}
 
+	// Real-time update: save retrieval query to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"retrievalQuery": data.Query,
+	})
+
 	return nil
 }
 
@@ -615,6 +633,11 @@ func (h *AgentStreamHandler) handleQueryExpansion(ctx context.Context, evt event
 	}); err != nil {
 		logger.GetLogger(h.ctx).Error("Append query_expansion event to stream failed", "error", err)
 	}
+
+	// Real-time update: save query expansion to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"expansions": data.Expansions,
+	})
 
 	return nil
 }
@@ -640,6 +663,11 @@ func (h *AgentStreamHandler) handleVectorQuery(ctx context.Context, evt event.Ev
 		logger.GetLogger(h.ctx).Error("Append vector_query event to stream failed", "error", err)
 	}
 
+	// Real-time update: save vector query to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"vectorQuery": data.Query,
+	})
+
 	return nil
 }
 
@@ -663,6 +691,11 @@ func (h *AgentStreamHandler) handleKeywordQuery(ctx context.Context, evt event.E
 	}); err != nil {
 		logger.GetLogger(h.ctx).Error("Append keyword_query event to stream failed", "error", err)
 	}
+
+	// Real-time update: save keyword query to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"keywordQuery": data.Query,
+	})
 
 	return nil
 }
@@ -707,5 +740,50 @@ func (h *AgentStreamHandler) handleQueryIntentExplore(ctx context.Context, evt e
 		logger.GetLogger(h.ctx).Error("Append query_intent_explore event to stream failed", "error", err)
 	}
 
+	// Real-time update: save query_intent_explore data to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"intentExplore": map[string]interface{}{
+			"originalQuery":      data.OriginalQuery,
+			"analysisPaths":      pathsData,
+			"finalSearchQueries": data.FinalSearchQueries,
+			"totalSearchCount":   data.TotalSearchCount,
+		},
+	})
+
 	return nil
+}
+
+// updateMessagePipelineStages updates the message's PipelineStages field in real-time
+// This is called during SSE event handling to persist pipeline stages as they are generated
+func (h *AgentStreamHandler) updateMessagePipelineStages(stages map[string]interface{}) {
+	if h.messageService == nil || h.assistantMessage == nil {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Initialize if needed
+	if h.assistantMessage.PipelineStages == nil {
+		h.assistantMessage.PipelineStages = make(map[string]interface{})
+	}
+
+	// Merge new stages
+	for k, v := range stages {
+		h.assistantMessage.PipelineStages[k] = v
+	}
+
+	// Update message in database
+	msg := &types.Message{
+		ID:             h.assistantMessage.ID,
+		SessionID:      h.assistantMessage.SessionID,
+		PipelineStages: h.assistantMessage.PipelineStages,
+	}
+
+	go func() {
+		ctx := context.WithoutCancel(h.ctx)
+		if err := h.messageService.UpdateMessage(ctx, msg); err != nil {
+			logger.GetLogger(ctx).Error("Failed to update message pipeline stages", "error", err)
+		}
+	}()
 }

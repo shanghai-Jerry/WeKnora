@@ -1000,6 +1000,17 @@
                       </div>
                     </div>
 
+                    <!-- 多路向量检索（仅普通模式） -->
+                    <div v-if="!isAgentMode" class="setting-row">
+                      <div class="setting-info">
+                        <label>{{ $t('agent.editor.enableQueryIntentExplore') }}</label>
+                        <p class="desc">{{ $t('agentEditor.desc.queryIntentExplore') }}</p>
+                      </div>
+                      <div class="setting-control">
+                        <t-switch v-model="formData.config.enable_query_intent_explore" />
+                      </div>
+                    </div>
+
                     <!-- 向量召回TopK -->
                     <div class="setting-row">
                       <div class="setting-info">
@@ -1517,6 +1528,7 @@ const defaultFormData = {
     rerank_threshold: 0.5,
     // 高级设置（普通模式）
     enable_query_expansion: true,
+    enable_query_intent_explore: false,
     enable_rewrite: true,
     rewrite_prompt_system: '',
     rewrite_prompt_user: '',

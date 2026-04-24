@@ -149,8 +149,10 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 							},
 						})
 					}
+					chatManage.ChatResponse = &types.ChatResponse{Content: finalContent}
 					pipelineInfo(ctx, "Stream", "channel_close", map[string]interface{}{
-						"session_id": chatManage.SessionID,
+						"session_id":    chatManage.SessionID,
+						"final_content": finalContent,
 					})
 					return
 				}
@@ -222,6 +224,9 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 							Done:    response.Done,
 						},
 					})
+					if response.Done {
+						chatManage.ChatResponse = &types.ChatResponse{Content: finalContent}
+					}
 				}
 			}
 		}

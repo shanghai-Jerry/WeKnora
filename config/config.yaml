@@ -18,7 +18,7 @@ conversation:
   fallback_prompt_id: "default_fallback_prompt"  # from prompt_templates/fallback.yaml (mode: "model")
   enable_rewrite: true
   enable_query_expansion: false
-  enable_query_intent_explore: true
+  enable_query_intent_explore: false
   intent_explore_prompt_id: "default_intent_explore"
   enable_rerank: true
   rewrite_prompt_id: "default_rewrite"  # from prompt_templates/rewrite.yaml (content + user fields)
@@ -28,7 +28,7 @@ conversation:
     max_input_chars: 16384
     repeat_penalty: 1.0
     temperature: 0.3
-    max_completion_tokens: 2048
+    max_completion_tokens: 65535
     no_match_prefix: |-
       <think>
       </think>

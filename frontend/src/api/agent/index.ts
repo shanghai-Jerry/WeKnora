@@ -62,6 +62,7 @@ export interface CustomAgentConfig {
 
   // ===== 高级设置（主要用于普通模式）=====
   enable_query_expansion?: boolean; // 是否启用查询扩展
+  enable_query_intent_explore?: boolean; // 是否启用意图探索
   enable_rewrite?: boolean;         // 是否启用问题改写
   rewrite_prompt_system?: string;   // 改写系统提示词
   rewrite_prompt_user?: string;     // 改写用户提示词模板

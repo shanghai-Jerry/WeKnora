@@ -150,10 +150,10 @@
           <!-- 无引用时：显示 loading / 空状态 -->
           <template v-else>
             <div class="citation-loading">
-              <div v-if="!isRetrievalEmpty" class="loading-dots">
+              <div v-if="!props.is_completed" class="loading-dots">
                 <span></span><span></span><span></span>
               </div>
-              <span class="loading-text">{{ isRetrievalEmpty ? '未检索出内容' : '正在检索文献...' }}</span>
+              <span class="loading-text">{{ props.is_completed ? '未检索到相关文档' : '正在检索文献...' }}</span>
             </div>
           </template>
         </div>
@@ -300,9 +300,9 @@ const canvasRef = ref<HTMLDivElement | null>(null);
 const canvasSize = ref({ w: 640 });
 
 const MAX_ENTITIES = 8;
-const ENTITY_R = 40;   // 实体圈半径（与 CSS 中 center 实体 80px 直径匹配）
-const DIM_R = 16;      // 维度标签近似半径（与 CSS padding+文字宽度匹配）
-const DIM_DIST = 68;   // 维度距实体中心的距离
+const ENTITY_R = 44;
+const DIM_R = 18;
+const DIM_DIST = 90;   // 维度距实体中心的距离
 
 let ro: ResizeObserver | null = null;
 
@@ -494,11 +494,11 @@ const layout = computed<LayoutResult>(() => {
   // 加上维度标签后，半径需更大
   let radius: number;
   if (count === 0) radius = 0;
-  else if (count === 1) radius = 150;
-  else if (count === 2) radius = 170;
-  else if (count <= 4) radius = 180;
-  else if (count <= 6) radius = 200;
-  else radius = 220;
+  else if (count === 1) radius = 160;
+  else if (count === 2) radius = 180;
+  else if (count <= 4) radius = 200;
+  else if (count <= 6) radius = 220;
+  else radius = 240;
 
   // 起始角度：1个放右侧，2个左右对称，3个均匀，更多圆周
   let startAngle = 0;
@@ -521,21 +521,51 @@ const layout = computed<LayoutResult>(() => {
     });
   });
 
-  // 维度节点：中心朝上，外围朝外
+  // 维度节点：中心全周分布（避开外围实体方向），外围朝外
+  // 先收集外围节点的角度方向，供中心实体避让
+  const peripheralAngles: number[] = [];
+  rawNodes.forEach((n) => {
+    if (!n.isCenter && (n.x !== 0 || n.y !== 0)) {
+      peripheralAngles.push(Math.atan2(n.y, n.x));
+    }
+  });
+
+  // 找到避开 blocked 角度的最佳基准角
+  const findBestBaseAngle = (blocked: number[], margin: number) => {
+    if (blocked.length === 0) return -Math.PI / 2;
+    let bestAngle = -Math.PI / 2;
+    let bestDist = 0;
+    for (let deg = 0; deg < 360; deg += 10) {
+      const a = (deg * Math.PI) / 180;
+      const minDist = blocked.reduce((min, ba) => {
+        let diff = a - ba;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        return Math.min(min, Math.abs(diff));
+      }, Infinity);
+      if (minDist > bestDist) {
+        bestDist = minDist;
+        bestAngle = a;
+      }
+    }
+    return bestAngle;
+  };
+
   const rawDims: { label: string; parentId: string; x: number; y: number }[] = [];
   rawNodes.forEach((node) => {
     const dimList = node.dimensions.slice(0, 4);
     if (dimList.length === 0) return;
 
     let baseAngle: number;
+    const spread = Math.min(Math.PI * 0.8, (Math.PI * 0.5) / Math.max(dimList.length - 1, 1));
+
     if (node.isCenter) {
-      baseAngle = -Math.PI / 2; // 中心节点维度朝上
+      const blockMargin = Math.PI / 5;
+      baseAngle = findBestBaseAngle(peripheralAngles, blockMargin + spread / 2);
     } else {
-      baseAngle = Math.atan2(node.y, node.x); // 外围节点朝外
+      baseAngle = Math.atan2(node.y, node.x);
     }
 
-    // 当只有1个外围节点在右侧时，维度标签朝右上/右下散开，避免和中心节点维度重叠
-    const spread = Math.min(Math.PI / 2.5, Math.PI / Math.max(dimList.length, 1));
     dimList.forEach((d, i) => {
       const angle = dimList.length === 1
         ? baseAngle
@@ -548,6 +578,138 @@ const layout = computed<LayoutResult>(() => {
       });
     });
   });
+
+  // 碰撞规避：迭代排斥重叠的维度节点，并避免连线穿过节点/维度
+  const DIM_COLLIDE_R = 40;
+  const NODE_COLLIDE_R = ENTITY_R + 8;
+
+  const pointToSegmentDist = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
+    const abx = bx - ax, aby = by - ay;
+    const apx = px - ax, apy = py - ay;
+    const ab2 = abx * abx + aby * aby;
+    if (ab2 === 0) return Math.sqrt(apx * apx + apy * apy);
+    let t = (apx * abx + apy * aby) / ab2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * abx, cy = ay + t * aby;
+    const dx = px - cx, dy = py - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const pushDimAwayFromLine = (
+    dim: { x: number; y: number; parentId: string },
+    ax: number, ay: number, bx: number, by: number,
+    minClearance: number,
+  ) => {
+    const dist = pointToSegmentDist(dim.x, dim.y, ax, ay, bx, by);
+    if (dist >= minClearance) return false;
+    const push = minClearance - dist + 2;
+    const abx = bx - ax, aby = by - ay;
+    const abLen = Math.sqrt(abx * abx + aby * aby) || 1;
+    const perpX = -aby / abLen;
+    const perpY = abx / abLen;
+    const side = (dim.x - ax) * aby - (dim.y - ay) * abx;
+    const dir = side >= 0 ? 1 : -1;
+    dim.x += perpX * push * dir;
+    dim.y += perpY * push * dir;
+    return true;
+  };
+
+  const entityEdgeSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  intentExplore.value?.analysisPaths.forEach((path) => {
+    if (!path.source_entity || !path.target_entity) return;
+    const s = rawNodes.find((n) => n.id === path.source_entity);
+    const t = rawNodes.find((n) => n.id === path.target_entity);
+    if (!s || !t) return;
+    entityEdgeSegments.push({ x1: s.x, y1: s.y, x2: t.x, y2: t.y });
+  });
+
+  for (let iter = 0; iter < 30; iter++) {
+    let moved = false;
+    for (let i = 0; i < rawDims.length; i++) {
+      const di = rawDims[i];
+      const textWi = Math.max(28, di.label.length * 13 + 10);
+
+      for (let j = i + 1; j < rawDims.length; j++) {
+        const dj = rawDims[j];
+        const textWj = Math.max(28, dj.label.length * 13 + 10);
+        const minDist = (textWi + textWj) / 2 + 4;
+        const dx = di.x - dj.x;
+        const dy = di.y - dj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (dist < minDist) {
+          const push = (minDist - dist) / 2 + 1;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          di.x += nx * push;
+          di.y += ny * push;
+          dj.x -= nx * push;
+          dj.y -= ny * push;
+          moved = true;
+        }
+      }
+
+      rawNodes.forEach((n) => {
+        if (n.id === di.parentId) return;
+        const dx = di.x - n.x;
+        const dy = di.y - n.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const minDist = NODE_COLLIDE_R + DIM_COLLIDE_R / 2;
+        if (dist < minDist) {
+          const push = minDist - dist + 2;
+          di.x += (dx / dist) * push;
+          di.y += (dy / dist) * push;
+          moved = true;
+        }
+      });
+
+      const parent = rawNodes.find((n) => n.id === di.parentId);
+      if (parent) {
+        const dimLineA_x = parent.x, dimLineA_y = parent.y;
+        const dimLineB_x = di.x, dimLineB_y = di.y;
+
+        rawNodes.forEach((n) => {
+          if (n.id === di.parentId) return;
+          const clearance = ENTITY_R + 6;
+          const dist = pointToSegmentDist(n.x, n.y, dimLineA_x, dimLineA_y, dimLineB_x, dimLineB_y);
+          if (dist < clearance) {
+            const dxN = di.x - parent.x, dyN = di.y - parent.y;
+            const dLen = Math.sqrt(dxN * dxN + dyN * dyN) || 1;
+            const perpX = -dyN / dLen, perpY = dxN / dLen;
+            const side = (n.x - parent.x) * dyN - (n.y - parent.y) * dxN;
+            const dir = side >= 0 ? 1 : -1;
+            di.x += perpX * (clearance - dist + 4) * dir;
+            di.y += perpY * (clearance - dist + 4) * dir;
+            moved = true;
+          }
+        });
+
+        for (let j = 0; j < rawDims.length; j++) {
+          if (j === i) continue;
+          const dj = rawDims[j];
+          const clearance = (textWi + Math.max(28, dj.label.length * 13 + 10)) / 2 + 2;
+          const dist = pointToSegmentDist(dj.x, dj.y, dimLineA_x, dimLineA_y, dimLineB_x, dimLineB_y);
+          if (dist < clearance) {
+            const dxN = di.x - parent.x, dyN = di.y - parent.y;
+            const dLen = Math.sqrt(dxN * dxN + dyN * dyN) || 1;
+            const perpX = -dyN / dLen, perpY = dxN / dLen;
+            const side = (dj.x - parent.x) * dyN - (dj.y - parent.y) * dxN;
+            const dir = side >= 0 ? 1 : -1;
+            di.x += perpX * (clearance - dist + 2) * dir;
+            di.y += perpY * (clearance - dist + 2) * dir;
+            moved = true;
+          }
+        }
+      }
+
+      entityEdgeSegments.forEach((seg) => {
+        const clearance = DIM_COLLIDE_R / 2 + 4;
+        if (pushDimAwayFromLine(di, seg.x1, seg.y1, seg.x2, seg.y2, clearance)) {
+          moved = true;
+        }
+      });
+    }
+    if (!moved) break;
+  }
 
   // 计算内容边界框（考虑文字宽度）
   let minX = 0, maxX = 0, minY = 0, maxY = 0;
@@ -700,30 +862,33 @@ const truncateContent = (content: string) => {
 
 .stages-content {
   position: relative;
-  padding: 20px 14px 20px 40px;
+  padding: 28px 20px 32px 52px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 32px;
 }
 
 .timeline-track {
   position: absolute;
-  left: 24px;
-  top: 28px;
-  bottom: 28px;
+  left: 32px;
+  top: 36px;
+  bottom: 36px;
   width: 2px;
-  background: var(--td-component-stroke);
+  background: linear-gradient(to bottom, var(--td-component-stroke), #d1d5db, var(--td-component-stroke));
   border-radius: 1px;
 }
 
 .stage-item {
   position: relative;
+  &:not(:last-child) {
+    padding-bottom: 8px;
+  }
   .timeline-dot {
     position: absolute;
-    left: -24px;
+    left: -32px;
     top: 2px;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: white;
     border: 2px solid var(--td-component-stroke);
@@ -732,6 +897,7 @@ const truncateContent = (content: string) => {
     justify-content: center;
     z-index: 2;
     transition: all 0.3s ease;
+    box-shadow: 0 0 0 4px var(--td-bg-color-container);
     &.completed {
       border-color: #22c55e;
       background: #22c55e;
@@ -742,11 +908,11 @@ const truncateContent = (content: string) => {
   .stage-label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 14px;
     font-weight: 500;
     color: var(--td-text-color-primary);
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     .stage-icon { font-size: 14px; color: var(--td-brand-color); }
     .collapse-icon { margin-left: auto; font-size: 12px; color: var(--td-text-color-secondary); }
     &.clickable {
@@ -759,17 +925,17 @@ const truncateContent = (content: string) => {
 
 .evidence-step .stage-body {
   background: var(--td-bg-color-secondarycontainer);
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--td-component-stroke);
-  padding: 14px;
+  padding: 20px;
 }
 
 .evidence-stats {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 8px 12px;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 10px 14px;
   background: #fafafa;
   border-radius: 8px;
   border: 1px solid #eee;
@@ -784,9 +950,10 @@ const truncateContent = (content: string) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   overflow-x: auto;
   width: 100%;
+  padding: 4px 0;
 }
 
 .network-canvas {
@@ -795,6 +962,7 @@ const truncateContent = (content: string) => {
   border-radius: 12px;
   border: 1px solid #e8e8e8;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .network-svg {
@@ -807,8 +975,8 @@ const truncateContent = (content: string) => {
 
 .network-entity {
   position: absolute;
-  width: 72px;
-  height: 72px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -819,11 +987,11 @@ const truncateContent = (content: string) => {
   background: #f0f7f7;
   border: 1.5px solid #cce0e0;
   color: #4a7a7a;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   transition: all 0.2s ease;
   &.is-center {
-    width: 80px;
-    height: 80px;
+    width: 92px;
+    height: 92px;
     background: #e4f2f2;
     border-color: #b0d0d0;
     color: #356060;
@@ -832,7 +1000,7 @@ const truncateContent = (content: string) => {
   .entity-text {
     font-size: 11px;
     font-weight: 600;
-    line-height: 1.25;
+    line-height: 1.3;
     word-break: break-word;
     padding: 4px;
   }
@@ -846,10 +1014,10 @@ const truncateContent = (content: string) => {
   border: 1px solid #e4e4e4;
   color: #a0a0a0;
   border-radius: 10px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   min-width: 20px;
   text-align: center;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   .dim-text {
     font-size: 10px;
     line-height: 1.3;
@@ -867,18 +1035,18 @@ const truncateContent = (content: string) => {
 .source-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 14px;
   background: rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
-  margin-bottom: 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
 .source-avatars {
   display: flex;
   align-items: center;
   .source-avatar {
-    width: 24px; height: 24px; border-radius: 50%;
+    width: 26px; height: 26px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 10px; font-weight: 600;
     border: 2px solid white; margin-left: -6px;
@@ -888,29 +1056,29 @@ const truncateContent = (content: string) => {
 .source-text { font-size: 12px; color: var(--td-text-color-secondary); }
 
 .citation-list { display: flex; flex-direction: column; gap: 0; }
-.citation-item { padding: 10px 0; position: relative; }
-.citation-title { font-size: 13px; font-weight: 500; color: var(--td-text-color-primary); line-height: 1.5; margin-bottom: 4px; }
-.citation-source { font-size: 11px; color: var(--td-text-color-secondary); margin-bottom: 4px; }
+.citation-item { padding: 14px 4px; position: relative; }
+.citation-title { font-size: 13px; font-weight: 500; color: var(--td-text-color-primary); line-height: 1.5; margin-bottom: 6px; }
+.citation-source { font-size: 11px; color: var(--td-text-color-secondary); margin-bottom: 6px; }
 .citation-snippet { font-size: 11px; color: var(--td-text-color-placeholder); line-height: 1.4; }
-.citation-divider { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--td-component-stroke); }
-.citation-more { text-align: center; padding: 8px 0; font-size: 12px; color: var(--td-text-color-secondary); }
+.citation-divider { position: absolute; left: 4px; right: 4px; bottom: 0; height: 1px; background: var(--td-component-stroke); }
+.citation-more { text-align: center; padding: 12px 0; font-size: 12px; color: var(--td-text-color-secondary); }
 
 .citation-collapsed {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 0;
+  padding: 12px 0;
   .collapsed-hint {
     font-size: 12px;
     color: var(--td-text-color-secondary);
     background: rgba(0, 0, 0, 0.03);
-    padding: 4px 10px;
+    padding: 6px 12px;
     border-radius: 6px;
   }
 }
 
 .citation-loading {
-  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 0;
+  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px 0;
   .loading-text { font-size: 12px; color: var(--td-text-color-secondary); }
 }
 .loading-dots {
@@ -924,26 +1092,26 @@ const truncateContent = (content: string) => {
 }
 
 /* ===== Legacy ===== */
-.query-compare { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.query-compare { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .query-item {
-  display: flex; flex-direction: column; gap: 4px; padding: 8px 10px;
-  border-radius: 6px; font-size: 12px; flex: 1; min-width: 120px; max-width: calc(50% - 20px);
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 14px;
+  border-radius: 8px; font-size: 12px; flex: 1; min-width: 120px; max-width: calc(50% - 20px);
   &.original { background: rgba(0, 0, 0, 0.04); border: 1px solid rgba(0, 0, 0, 0.08); }
   &.rewritten { background: var(--td-brand-color-light); border: 1px solid var(--td-brand-color-focus); }
   .query-tag { font-size: 10px; font-weight: 600; color: var(--td-text-color-placeholder); text-transform: uppercase; letter-spacing: 0.3px; }
-  .query-text { color: var(--td-text-color-primary); line-height: 1.4; word-break: break-word; }
+  .query-text { color: var(--td-text-color-primary); line-height: 1.5; word-break: break-word; }
 }
-.arrow-icon { font-size: 14px; color: var(--td-brand-color); flex-shrink: 0; margin-top: 8px; }
+.arrow-icon { font-size: 14px; color: var(--td-brand-color); flex-shrink: 0; margin-top: 10px; }
 .retrieval-query {
-  padding: 8px 10px; background: rgba(0, 0, 0, 0.04); border-radius: 6px;
-  font-size: 12px; color: var(--td-text-color-primary); line-height: 1.4; word-break: break-word; border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 10px 14px; background: rgba(0, 0, 0, 0.04); border-radius: 8px;
+  font-size: 12px; color: var(--td-text-color-primary); line-height: 1.5; word-break: break-word; border: 1px solid rgba(0, 0, 0, 0.08);
   &.vector-query { background: #f9f0ff; border-color: #d3adf7; }
   &.keyword-query { background: #e6f7ff; border-color: #91d5ff; }
 }
-.expansion-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.expansion-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .expansion-tag {
-  padding: 4px 10px; background: white; border: 1px solid var(--td-component-stroke);
-  border-radius: 6px; font-size: 11px; color: var(--td-text-color-primary); transition: all 0.2s;
+  padding: 5px 12px; background: white; border: 1px solid var(--td-component-stroke);
+  border-radius: 8px; font-size: 11px; color: var(--td-text-color-primary); transition: all 0.2s;
   &:hover { border-color: var(--td-brand-color); background: var(--td-brand-color-light); }
 }
 </style>

@@ -41,4 +41,3 @@ type ContextStats struct {
 	// Number of original messages before compression
 	OriginalMessageCount int `json:"original_message_count"`
 }
-

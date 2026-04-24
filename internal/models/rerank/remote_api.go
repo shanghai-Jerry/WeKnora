@@ -15,12 +15,12 @@ import (
 // It supports both probability-scoring models and logit-scoring models via the
 // ScoreFormat configuration.
 type OpenAIReranker struct {
-	modelName    string       // Name of the model used for reranking
-	modelID      string       // Unique identifier of the model
-	apiKey       string       // API key for authentication
-	baseURL      string       // Base URL for API requests
-	client       *http.Client // HTTP client for making API requests
-	scoreFormat  ScoreFormat  // How to interpret RelevanceScore from the model
+	modelName   string       // Name of the model used for reranking
+	modelID     string       // Unique identifier of the model
+	apiKey      string       // API key for authentication
+	baseURL     string       // Base URL for API requests
+	client      *http.Client // HTTP client for making API requests
+	scoreFormat ScoreFormat  // How to interpret RelevanceScore from the model
 }
 
 // RerankRequest represents a request to rerank documents based on relevance to a query

@@ -1,4 +1,4 @@
-.PHONY: help build run test clean docker-build-app docker-build-docreader docker-build-frontend docker-build-all docker-run migrate-up migrate-down docker-restart docker-stop start-all stop-all start-ollama stop-ollama build-images build-images-app build-images-docreader build-images-frontend clean-images check-env list-containers pull-images show-platform dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend docs install-swagger
+.PHONY: help build run test clean docker-build-app docker-build-docreader docker-build-frontend docker-build-all docker-run migrate-up migrate-down docker-restart docker-stop start-all stop-all start-ollama stop-ollama build-images build-images-app build-images-docreader build-images-frontend clean-images check-env list-containers pull-images show-platform dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend docs install-swagger run-rerank
 
 # Show help
 help:
@@ -56,6 +56,7 @@ help:
 	@echo "  dev-status        查看开发环境状态"
 	@echo "  dev-app           启动后端应用（本地运行，需先运行 dev-start）"
 	@echo "  dev-frontend      启动前端（本地运行，需先运行 dev-start）"
+	@echo "  run-rerank        启动本地 rerank 服务"
 
 # Go related variables
 BINARY_NAME=WeKnora
@@ -285,4 +286,6 @@ dev-app:
 dev-frontend:
 	./scripts/dev.sh frontend
 
+run-rerank:
+	./run-rerank.sh
 

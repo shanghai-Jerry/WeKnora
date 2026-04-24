@@ -13,12 +13,12 @@ type EventType string
 
 const (
 	// Query processing events
-	EventQueryReceived   EventType = "query.received"   // 用户查询到达
-	EventQueryValidated  EventType = "query.validated"  // 查询验证完成
-	EventQueryPreprocess EventType = "query.preprocess" // 查询预处理
-	EventQueryRewrite    EventType = "query.rewrite"    // 查询改写
-	EventQueryRewritten  EventType = "query.rewritten"  // 查询改写完成
-	EventQueryExpansion    EventType = "query.expansion"       // Query Expansion 扩展查询
+	EventQueryReceived      EventType = "query.received"       // 用户查询到达
+	EventQueryValidated     EventType = "query.validated"      // 查询验证完成
+	EventQueryPreprocess    EventType = "query.preprocess"     // 查询预处理
+	EventQueryRewrite       EventType = "query.rewrite"        // 查询改写
+	EventQueryRewritten     EventType = "query.rewritten"      // 查询改写完成
+	EventQueryExpansion     EventType = "query.expansion"      // Query Expansion 扩展查询
 	EventQueryIntentExplore EventType = "query.intent_explore" // 多路检索意图探索
 
 	// Retrieval events
