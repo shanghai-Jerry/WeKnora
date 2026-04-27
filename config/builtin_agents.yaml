@@ -95,6 +95,43 @@ builtin_agents:
       rerank_top_k: 10
       rerank_threshold: 0.3
 
+  - id: "builtin-retrieve-then-generate"
+    avatar: "🔄"
+    is_builtin: true
+    i18n:
+      default:
+        name: "Retrieve then Generate"
+        description: "Iterative retrieval-augmented generation that retrieves knowledge progressively based on the model's needs"
+      zh-CN:
+        name: "检索即生成"
+        description: "迭代式检索增强生成，根据模型回答需要逐步检索知识库内容"
+      zh-TW:
+        name: "檢索即生成"
+        description: "迭代式檢索增強生成，根據模型回答需要逐步檢索知識庫內容"
+      ja-JP:
+        name: "検索して生成"
+        description: "モデルの回答ニーズに基づいて段階的にナレッジを検索する反復型RAG"
+      ko-KR:
+        name: "검색 후 생성"
+        description: "모델의 응답 필요에 따라 점진적으로 지식을 검색하는 반복형 RAG"
+    config:
+      agent_mode: "retrieve-then-generate"
+      temperature: 0.7
+      max_completion_tokens: 4096
+      rag_max_rounds: 3
+      kb_selection_mode: "all"
+      retrieve_kb_only_when_mentioned: false
+      web_search_enabled: true
+      web_search_max_results: 5
+      multi_turn_enabled: true
+      history_turns: 5
+      faq_priority_enabled: false
+      embedding_top_k: 10
+      keyword_threshold: 0.3
+      vector_threshold: 0.5
+      rerank_top_k: 5
+      rerank_threshold: 0.3
+
   - id: "builtin-data-analyst"
     avatar: "📊"
     is_builtin: true

@@ -267,3 +267,13 @@ type QueryIntentExploreData struct {
 	FinalSearchQueries []string        `json:"final_search_queries"`
 	TotalSearchCount   int             `json:"total_search_count"`
 }
+
+// RAGIterationData represents a single step in the retrieve-then-generate iteration loop
+type RAGIterationData struct {
+	Round         int    `json:"round"`
+	Action        string `json:"action"`         // "answer" or "retrieve"
+	Content       string `json:"content"`        // Answer content or intermediary reasoning
+	RetrieveQuery string `json:"retrieve_query,omitempty"` // New query when action=retrieve
+	ChunkCount    int    `json:"chunk_count,omitempty"`    // Number of chunks retrieved this round
+	Done          bool   `json:"done"`            // True on the final iteration step
+}

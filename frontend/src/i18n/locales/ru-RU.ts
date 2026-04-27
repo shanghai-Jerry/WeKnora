@@ -342,6 +342,17 @@ export default {
       baseType: 'Base Type',
       normalDesc: 'Quick response, direct answers',
       agentDesc: 'Multi-step thinking, deep analysis for complex questions',
+      retrieveThenGenerateDesc: 'Iterative retrieval, progressively retrieves knowledge based on model needs',
+      ragIterateSettings: 'Iterate Settings',
+      ragMaxRounds: 'Max Iteration Rounds',
+      ragMaxRoundsTip: 'Maximum number of retrieval-generation iterations (recommended: 1-6)',
+      ragIterate: {
+        stepCompleted: 'Answer Generated',
+        stepRetrieving: 'Retrieving Knowledge',
+        round: 'Round {round}',
+        query: 'Search Query',
+        chunksFound: '{count} document chunk(s) found',
+      },
       model: 'Model',
       modelPlaceholder: 'Select Model',
       systemPrompt: 'System Prompt',
@@ -437,10 +448,16 @@ export default {
       mcpEnabled: 'MCP services enabled',
       multiTurn: 'Multi-turn conversation'
     },
-    type: {
+type: {
       normal: 'Quick Answer',
       agent: 'Smart Reasoning',
+      retrieveThenGenerate: 'Retrieve then Generate',
       custom: 'Custom'
+    },
+    mode: {
+      normal: 'Quick Answer',
+      agent: 'Smart Reasoning',
+      retrieveThenGenerate: 'Retrieve then Generate',
     },
     mode: {
       normal: 'Quick Answer',

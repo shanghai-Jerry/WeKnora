@@ -47,6 +47,7 @@
           'is-builtin': agent.is_builtin,
           'agent-mode-normal': agent.config?.agent_mode === 'quick-answer',
           'agent-mode-agent': agent.config?.agent_mode === 'smart-reasoning',
+          'agent-mode-rag': agent.config?.agent_mode === 'retrieve-then-generate',
           'shared-agent-card': !agent.isMine
         }"
         @click="handleCardClick(agent)"
@@ -62,8 +63,8 @@
         </div>
         <div class="card-header">
           <div class="card-header-left">
-            <div v-if="agent.is_builtin" class="builtin-avatar" :class="agent.config?.agent_mode === 'smart-reasoning' ? 'agent' : 'normal'">
-              <t-icon :name="agent.config?.agent_mode === 'smart-reasoning' ? 'control-platform' : 'chat'" size="18px" />
+            <div v-if="agent.is_builtin" class="builtin-avatar" :class="getAgentAvatarClass(agent.config?.agent_mode)">
+              <t-icon :name="getAgentIcon(agent.config?.agent_mode)" size="18px" />
             </div>
             <div v-else-if="agent.avatar" class="builtin-avatar agent-emoji">{{ agent.avatar }}</div>
             <AgentAvatar v-else :name="agent.name" size="small" />
@@ -124,9 +125,9 @@
             <div class="feature-badges">
               <t-tag v-if="agent.isMine && !agent.is_builtin && agent.disabled_by_me" theme="default" size="small" class="disabled-badge">{{ $t('agent.disabled') }}</t-tag>
               <t-tag v-if="!agent.isMine && agent.disabled_by_me" theme="default" size="small" class="disabled-badge">{{ $t('agent.disabled') }}</t-tag>
-              <t-tooltip :content="agent.config?.agent_mode === 'smart-reasoning' ? $t('agent.mode.agent') : $t('agent.mode.normal')" placement="top">
-                <div class="feature-badge" :class="{ 'mode-normal': agent.config?.agent_mode === 'quick-answer', 'mode-agent': agent.config?.agent_mode === 'smart-reasoning' }">
-                  <t-icon :name="agent.config?.agent_mode === 'smart-reasoning' ? 'control-platform' : 'chat'" size="14px" />
+              <t-tooltip :content="getAgentModeText(agent.config?.agent_mode)" placement="top">
+                <div class="feature-badge" :class="{ 'mode-normal': agent.config?.agent_mode === 'quick-answer', 'mode-agent': agent.config?.agent_mode === 'smart-reasoning', 'mode-rag': agent.config?.agent_mode === 'retrieve-then-generate' }">
+                  <t-icon :name="getAgentIcon(agent.config?.agent_mode)" size="14px" />
                 </div>
               </t-tooltip>
               <t-tooltip v-if="agent.config?.web_search_enabled" :content="$t('agent.features.webSearch')" placement="top">
@@ -199,8 +200,8 @@
         <div class="card-header">
           <div class="card-header-left">
             <!-- 内置智能体使用简洁图标 -->
-            <div v-if="agent.is_builtin" class="builtin-avatar" :class="agent.config?.agent_mode === 'smart-reasoning' ? 'agent' : 'normal'">
-              <t-icon :name="agent.config?.agent_mode === 'smart-reasoning' ? 'control-platform' : 'chat'" size="18px" />
+            <div v-if="agent.is_builtin" class="builtin-avatar" :class="getAgentAvatarClass(agent.config?.agent_mode)">
+              <t-icon :name="getAgentIcon(agent.config?.agent_mode)" size="18px" />
             </div>
             <div v-else-if="agent.avatar" class="builtin-avatar agent-emoji">{{ agent.avatar }}</div>
             <AgentAvatar v-else :name="agent.name" size="small" />
@@ -257,9 +258,9 @@
           <div class="bottom-left">
             <div class="feature-badges">
               <t-tag v-if="!agent.is_builtin && agent.disabled_by_me" theme="default" size="small" class="disabled-badge">{{ $t('agent.disabled') }}</t-tag>
-              <t-tooltip :content="agent.config?.agent_mode === 'smart-reasoning' ? $t('agent.mode.agent') : $t('agent.mode.normal')" placement="top">
-                <div class="feature-badge" :class="{ 'mode-normal': agent.config?.agent_mode === 'quick-answer', 'mode-agent': agent.config?.agent_mode === 'smart-reasoning' }">
-                  <t-icon :name="agent.config?.agent_mode === 'smart-reasoning' ? 'control-platform' : 'chat'" size="14px" />
+              <t-tooltip :content="getAgentModeText(agent.config?.agent_mode)" placement="top">
+                <div class="feature-badge" :class="{ 'mode-normal': agent.config?.agent_mode === 'quick-answer', 'mode-agent': agent.config?.agent_mode === 'smart-reasoning', 'mode-rag': agent.config?.agent_mode === 'retrieve-then-generate' }">
+                  <t-icon :name="getAgentIcon(agent.config?.agent_mode)" size="14px" />
                 </div>
               </t-tooltip>
               <t-tooltip v-if="agent.config?.web_search_enabled" :content="$t('agent.features.webSearch')" placement="top">
@@ -360,9 +361,9 @@
           <div class="bottom-left">
             <div class="feature-badges">
               <t-tag v-if="shared.disabled_by_me" theme="default" size="small" class="disabled-badge">{{ $t('agent.disabled') }}</t-tag>
-              <t-tooltip :content="shared.agent?.config?.agent_mode === 'smart-reasoning' ? $t('agent.mode.agent') : $t('agent.mode.normal')" placement="top">
-                <div class="feature-badge" :class="{ 'mode-normal': shared.agent?.config?.agent_mode === 'quick-answer', 'mode-agent': shared.agent?.config?.agent_mode === 'smart-reasoning' }">
-                  <t-icon :name="shared.agent?.config?.agent_mode === 'smart-reasoning' ? 'control-platform' : 'chat'" size="14px" />
+              <t-tooltip :content="getAgentModeText(shared.agent?.config?.agent_mode)" placement="top">
+                <div class="feature-badge" :class="{ 'mode-normal': shared.agent?.config?.agent_mode === 'quick-answer', 'mode-agent': shared.agent?.config?.agent_mode === 'smart-reasoning', 'mode-rag': shared.agent?.config?.agent_mode === 'retrieve-then-generate' }">
+                  <t-icon :name="getAgentIcon(shared.agent?.config?.agent_mode)" size="14px" />
                 </div>
               </t-tooltip>
               <t-tooltip v-if="shared.agent?.config?.web_search_enabled" :content="$t('agent.features.webSearch')" placement="top">
@@ -648,6 +649,24 @@ const sharedAgentMcpScopeText = computed(() => {
   if (c.mcp_selection_mode === 'selected' && c.mcp_services?.length) return t('agent.shareScope.mcpSelected', { count: c.mcp_services.length })
   return t('agent.shareScope.mcpNone')
 })
+function getAgentIcon(mode?: string): string {
+  if (mode === 'smart-reasoning') return 'control-platform';
+  if (mode === 'retrieve-then-generate') return 'refresh';
+  return 'chat';
+}
+
+function getAgentAvatarClass(mode?: string): string {
+  if (mode === 'smart-reasoning') return 'agent';
+  if (mode === 'retrieve-then-generate') return 'rag';
+  return 'normal';
+}
+
+function getAgentModeText(mode?: string): string {
+  if (mode === 'smart-reasoning') return t('agent.mode.agent');
+  if (mode === 'retrieve-then-generate') return t('agent.mode.retrieveThenGenerate');
+  return t('agent.mode.normal');
+}
+
 const editorVisible = ref(false)
 const editorMode = ref<'create' | 'edit'>('create')
 const editingAgent = ref<CustomAgent | null>(null)
@@ -1245,6 +1264,24 @@ defineExpose({
     }
   }
 
+  // 检索即生成模式样式
+  &.agent-mode-rag {
+    background: linear-gradient(135deg, var(--td-bg-color-container) 0%, rgba(0, 150, 199, 0.04) 100%);
+
+    &:hover {
+      border-color: var(--td-brand-color);
+      box-shadow: 0 4px 12px rgba(0, 150, 199, 0.12);
+    }
+
+    .card-decoration {
+      color: rgba(0, 150, 199, 0.35);
+    }
+
+    &:hover .card-decoration {
+      color: rgba(0, 150, 199, 0.5);
+    }
+  }
+
   // 确保内容在装饰之上
   .card-header,
   .card-content,
@@ -1509,6 +1546,15 @@ defineExpose({
 
     &:hover {
       background: rgba(124, 77, 255, 0.12);
+    }
+  }
+
+  &.mode-rag {
+    background: rgba(0, 150, 199, 0.08);
+    color: #0096c7;
+
+    &:hover {
+      background: rgba(0, 150, 199, 0.12);
     }
   }
 

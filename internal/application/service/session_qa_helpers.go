@@ -208,6 +208,18 @@ func (s *sessionService) applyAgentOverridesToChatManage(
 		logger.Infof(ctx, "FAQ priority enabled: threshold=%.2f, boost=%.2f",
 			cm.FAQDirectAnswerThreshold, cm.FAQScoreBoost)
 	}
+
+	// Retrieve-then-generate settings
+	if customAgent.Config.AgentMode == types.AgentModeRetrieveThenGenerate {
+		cm.EnableRetrieveThenGenerate = true
+		if customAgent.Config.RAGMaxRounds > 0 {
+			cm.RAGMaxRounds = customAgent.Config.RAGMaxRounds
+		} else {
+			cm.RAGMaxRounds = 3
+		}
+		cm.RAGRetrievalPrompt = customAgent.Config.RAGRetrievalPrompt
+		logger.Infof(ctx, "Retrieve-then-generate enabled: max_rounds=%d", cm.RAGMaxRounds)
+	}
 }
 
 // restrictMentionsToAgentScope filters user-provided @mention targets (KB IDs

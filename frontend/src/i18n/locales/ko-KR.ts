@@ -1069,11 +1069,13 @@ export default {
     type: {
       normal: "빠른 Q&A",
       agent: "에이전트 추론",
+      retrieveThenGenerate: "검색 후 생성",
       custom: "사용자 정의",
     },
     mode: {
       normal: "빠른 Q&A",
       agent: "에이전트 추론",
+      retrieveThenGenerate: "검색 후 생성",
     },
     features: {
       webSearch: "웹 검색 지원",
@@ -1175,6 +1177,17 @@ export default {
       baseType: "기본 유형",
       normalDesc: "신속하게 응답하고 질문에 직접 답변하세요.",
       agentDesc: "복잡한 문제에 대한 다단계 사고와 심층 분석",
+      retrieveThenGenerateDesc: "모델의 응답 필요에 따라 점진적으로 지식을 검색하는 반복형 검색",
+      ragIterateSettings: "반복 설정",
+      ragMaxRounds: "최대 반복 횟수",
+      ragMaxRoundsTip: "검색 생성 반복 최대 횟수(권장: 1-6회)",
+      ragIterate: {
+        stepCompleted: '답변 생성됨',
+        stepRetrieving: '지식 검색 중',
+        round: '라운드 {round}',
+        query: '검색 쿼리',
+        chunksFound: '{count}개 문서 청크 발견',
+      },
       model: "모델",
       modelPlaceholder: "모델을 선택하세요.",
       systemPrompt: "시스템 프롬프트",

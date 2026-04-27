@@ -50,7 +50,7 @@
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.mode') }} <span class="required">*</span></label>
-                        <p class="desc">{{ agentMode === 'smart-reasoning' ? $t('agent.editor.agentDesc') : $t('agent.editor.normalDesc') }}</p>
+                        <p class="desc">{{ $t('agent.editor.' + (agentMode === 'smart-reasoning' ? 'agentDesc' : agentMode === 'retrieve-then-generate' ? 'retrieveThenGenerateDesc' : 'normalDesc')) }}</p>
                       </div>
                       <div class="setting-control">
                         <t-radio-group v-model="agentMode" :disabled="isBuiltinAgent">
@@ -59,6 +59,9 @@
                           </t-radio-button>
                           <t-radio-button value="smart-reasoning">
                             {{ $t('agent.type.agent') }}
+                          </t-radio-button>
+                          <t-radio-button value="retrieve-then-generate">
+                            {{ $t('agent.type.retrieveThenGenerate') }}
                           </t-radio-button>
                         </t-radio-group>
                       </div>
@@ -981,7 +984,34 @@
                   </div>
                 </div>
 
-                <!-- 检索策略（仅在有知识库能力时显示） -->
+                <!-- 检索即生成配置（仅在检索即生成模式时显示） -->
+                <div v-show="currentSection === 'rag-iterate' && isRetrieveThenGenerateMode" class="section">
+                  <div class="section-header">
+                    <h2>{{ $t('agent.editor.ragIterateSettings') }}</h2>
+                    <p class="section-description">{{ $t('agent.editor.retrieveThenGenerateDesc') }}</p>
+                  </div>
+                  
+                  <div class="settings-group">
+                    <!-- 最大迭代轮数 -->
+                    <div class="setting-row">
+                      <div class="setting-info">
+                        <label>{{ $t('agent.editor.ragMaxRounds') }}</label>
+                        <p class="desc">{{ $t('agent.editor.ragMaxRoundsTip') }}</p>
+                      </div>
+                      <div class="setting-control">
+                        <t-input-number
+                          v-model="formData.config.rag_max_rounds"
+                          :min="1"
+                          :max="6"
+                          :step="1"
+                          :placeholder="$t('agent.editor.ragMaxRoundsTip')"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 检索策略（仅在有知识库能力且非检索即生成模式时显示） -->
                 <div v-show="currentSection === 'retrieval' && hasKnowledgeBase" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.retrievalStrategy') }}</h2>
@@ -1452,8 +1482,12 @@ const navItems = computed(() => {
   if (isAgentMode.value && skillsAvailable.value) {
     items.push({ key: 'skills', icon: 'lightbulb', label: t('agent.editor.skillsConfig') });
   }
-  // 有知识库能力时才显示检索策略
-  if (hasKnowledgeBase.value) {
+  // 检索即生成模式显示专属配置
+  if (isRetrieveThenGenerateMode.value) {
+    items.push({ key: 'rag-iterate', icon: 'refresh', label: t('agent.editor.ragIterateSettings') });
+  }
+  // 有知识库能力时才显示检索策略（非检索即生成模式）
+  if (hasKnowledgeBase.value && !isRetrieveThenGenerateMode.value) {
     items.push({ key: 'retrieval', icon: 'search', label: t('agent.editor.retrievalStrategy') });
   }
   // 网络搜索（独立菜单）
@@ -1461,7 +1495,7 @@ const navItems = computed(() => {
   // 多模态配置（图片上传）
   items.push({ key: 'multimodal', icon: 'image', label: t('agentEditor.imageUpload.navLabel') });
   // 多轮对话（仅普通模式显示，Agent模式内部自动控制）
-  if (!isAgentMode.value) {
+  if (!isAgentMode.value && !isRetrieveThenGenerateMode.value) {
     items.push({ key: 'conversation', icon: 'chat', label: t('agent.editor.conversationSettings') });
   }
   // 共享管理（仅编辑模式且非内置智能体）
@@ -1482,7 +1516,7 @@ const defaultFormData = {
   is_builtin: false,
   config: {
     // 基础设置
-    agent_mode: 'quick-answer' as 'quick-answer' | 'smart-reasoning',
+    agent_mode: 'quick-answer' as 'quick-answer' | 'smart-reasoning' | 'retrieve-then-generate',
     system_prompt: '',
     context_template: '{{query}}',
     // 模型设置
@@ -1535,6 +1569,9 @@ const defaultFormData = {
     fallback_strategy: 'model' as 'fixed' | 'model',
     fallback_response: '',
     fallback_prompt: '',
+    // 检索即生成设置
+    rag_max_rounds: 3,
+    rag_retrieval_prompt: '',
     // 已废弃字段（保留兼容）
     welcome_message: '',
     suggested_prompts: [] as string[],
@@ -1544,10 +1581,12 @@ const defaultFormData = {
 const formData = ref(JSON.parse(JSON.stringify(defaultFormData)));
 const agentMode = computed({
   get: () => formData.value.config.agent_mode,
-  set: (val: 'quick-answer' | 'smart-reasoning') => { formData.value.config.agent_mode = val; }
+  set: (val: 'quick-answer' | 'smart-reasoning' | 'retrieve-then-generate') => { formData.value.config.agent_mode = val; }
 });
 
 const isAgentMode = computed(() => agentMode.value === 'smart-reasoning');
+const isRetrieveThenGenerateMode = computed(() => agentMode.value === 'retrieve-then-generate');
+const isNormalMode = computed(() => agentMode.value === 'quick-answer');
 
 // 思考模式计算属性（直接绑定 boolean）
 const thinkingEnabled = computed({

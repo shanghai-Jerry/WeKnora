@@ -148,7 +148,12 @@ func (s *sessionService) KnowledgeQA(
 	hasHistory := chatManage.MaxRounds > 0
 
 	var pipeline []types.EventType
-	if !needsRAG {
+	if chatManage.EnableRetrieveThenGenerate && needsRAG {
+		pipeline = types.NewPipelineBuilder().
+			AddIf(hasHistory, types.LOAD_HISTORY).
+			Add(types.RAG_ITERATE).
+			Build()
+	} else if !needsRAG {
 		// Pure chat — no retrieval needed.
 		userContent := req.Query
 		if req.ImageDescription != "" && !chatModelSupportsVision {
@@ -182,8 +187,8 @@ func (s *sessionService) KnowledgeQA(
 			Build()
 	}
 
-	logger.Infof(ctx, "Assembled pipeline (%d stages), hasKB=%v, webSearch=%v, history=%v",
-		len(pipeline), hasKB, req.WebSearchEnabled, hasHistory)
+	logger.Infof(ctx, "Assembled pipeline (%d stages), hasKB=%v, webSearch=%v, history=%v, retrieveThenGenerate=%v",
+		len(pipeline), hasKB, req.WebSearchEnabled, hasHistory, chatManage.EnableRetrieveThenGenerate)
 
 	// Start knowledge QA event processing (set session tenant so pipeline session/message lookups use session owner)
 	ctx = context.WithValue(ctx, types.SessionTenantIDContextKey, req.Session.TenantID)

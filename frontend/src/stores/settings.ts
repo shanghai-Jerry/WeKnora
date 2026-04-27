@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from "@/api/agent";
+import { BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID, BUILTIN_RETRIEVE_THEN_GENERATE_ID } from "@/api/agent";
 
 // 定义设置接口
 interface Settings {
@@ -353,10 +353,12 @@ export const useSettingsStore = defineStore("settings", {
         this.settings.isAgentEnabled = false;
       } else if (agentId === BUILTIN_SMART_REASONING_ID) {
         this.settings.isAgentEnabled = true;
+      } else if (agentId === BUILTIN_RETRIEVE_THEN_GENERATE_ID) {
+        this.settings.isAgentEnabled = false;
       }
       // 自定义智能体需要根据其配置来决定
-      
-      // 切换智能体时重置知识库和文件选择状态
+
+      // 切换智���体时重置知识库和文件选择状态
       // 因为不同智能体关联的知识库不同，需要清空用户之前的选择
       this.settings.selectedKnowledgeBases = [];
       this.settings.selectedFiles = [];

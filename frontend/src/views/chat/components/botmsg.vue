@@ -3,11 +3,16 @@
         <div style="display: flex;flex-direction: column; gap:8px">
             <!-- Pipeline Stages Display (non-Agent mode only) - 显示在最上面 -->
             <PipelineStagesDisplay
-                v-if="!session.isAgentMode && session.pipeline_stages"
+                v-if="!session.isAgentMode && session.pipeline_stages && !hasRAGIterateSteps"
                 :pipeline-stages="session.pipeline_stages"
                 :knowledge-references="session.knowledge_references"
                 :is_completed="session.is_completed"
             ></PipelineStagesDisplay>
+            <!-- RAG Iteration Display (retrieve-then-generate mode) -->
+            <RAGIterationDisplay
+                v-if="!session.isAgentMode && hasRAGIterateSteps"
+                :pipeline-stages="session.pipeline_stages"
+            ></RAGIterationDisplay>
             <!-- 显示@的知识库和文件（非 Agent 模式下显示） -->
             <div v-if="!session.isAgentMode && mentionedItems && mentionedItems.length > 0" class="mentioned_items">
                 <span
@@ -76,6 +81,7 @@ import graphInfo from './graphInfo.vue';
 import deepThink from './deepThink.vue';
 import AgentStreamDisplay from './AgentStreamDisplay.vue';
 import PipelineStagesDisplay from './PipelineStagesDisplay.vue';
+import RAGIterationDisplay from './RAGIterationDisplay.vue';
 import picturePreview from '@/components/picture-preview.vue';
 import { sanitizeHTML, safeMarkdownToHTML, createSafeImage, isValidImageURL, hydrateProtectedFileImages } from '@/utils/security';
 import { useI18n } from 'vue-i18n';
@@ -177,6 +183,13 @@ const markdownTokens = computed(() => {
 const hasActualContent = computed(() => {
     const text = props.content || props.session?.content || '';
     return text && text.trim().length > 0;
+});
+
+// 计算属性：判断是否有 RAG 迭代步骤（检索即生成模式）
+const hasRAGIterateSteps = computed(() => {
+    const stages = props.session?.pipeline_stages;
+    if (!stages) return false;
+    return Object.keys(stages).some(key => key.startsWith('rag_round_'));
 });
 
 // 渲染单个 token 为 HTML

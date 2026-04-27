@@ -3,7 +3,7 @@ import { get, post, put, del } from "../../utils/request";
 // 智能体配置
 export interface CustomAgentConfig {
   // ===== 基础设置 =====
-  agent_mode?: 'quick-answer' | 'smart-reasoning';  // 运行模式：quick-answer=RAG模式, smart-reasoning=ReAct Agent模式
+  agent_mode?: 'quick-answer' | 'smart-reasoning' | 'retrieve-then-generate';  // 运行模式：quick-answer=RAG模式, smart-reasoning=ReAct Agent模式, retrieve-then-generate=检索即生成
   system_prompt?: string;           // 统一系统提示词（使用 {{web_search_status}} 占位符动态控制行为）
   context_template?: string;        // 上下文模板（普通模式）
 
@@ -70,6 +70,10 @@ export interface CustomAgentConfig {
   fallback_response?: string;       // 固定兜底回复
   fallback_prompt?: string;         // 兜底提示词（模型生成时）
 
+  // ===== 检索即生成设置 =====
+  rag_max_rounds?: number;           // 检索即生成最大迭代轮数（默认 3）
+  rag_retrieval_prompt?: string;    // 检索即生成自定义 system prompt
+
   // ===== 已废弃字段（保留兼容）=====
   welcome_message?: string;
   suggested_prompts?: string[];
@@ -108,10 +112,12 @@ export interface UpdateAgentRequest {
 // 内置智能体 ID（常用的保留常量，便于代码引用）
 export const BUILTIN_QUICK_ANSWER_ID = 'builtin-quick-answer';
 export const BUILTIN_SMART_REASONING_ID = 'builtin-smart-reasoning';
+export const BUILTIN_RETRIEVE_THEN_GENERATE_ID = 'builtin-retrieve-then-generate';
 
 // AgentMode 常量
 export const AGENT_MODE_QUICK_ANSWER = 'quick-answer';
 export const AGENT_MODE_SMART_REASONING = 'smart-reasoning';
+export const AGENT_MODE_RETRIEVE_THEN_GENERATE = 'retrieve-then-generate';
 
 // Deprecated: Use BUILTIN_QUICK_ANSWER_ID instead
 export const BUILTIN_AGENT_NORMAL_ID = BUILTIN_QUICK_ANSWER_ID;

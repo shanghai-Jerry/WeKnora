@@ -77,6 +77,7 @@ func (h *AgentStreamHandler) Subscribe() {
 	h.eventBus.On(event.EventRetrievalVectorQ, h.handleVectorQuery)
 	h.eventBus.On(event.EventRetrievalKeywordQ, h.handleKeywordQuery)
 	h.eventBus.On(event.EventQueryIntentExplore, h.handleQueryIntentExplore)
+	h.eventBus.On(event.EventRAGIteration, h.handleRAGIteration)
 }
 
 // handleThought handles agent thought events
@@ -786,4 +787,45 @@ func (h *AgentStreamHandler) updateMessagePipelineStages(stages map[string]inter
 			logger.GetLogger(ctx).Error("Failed to update message pipeline stages", "error", err)
 		}
 	}()
+}
+
+// handleRAGIteration handles RAG iteration events for retrieve-then-generate mode
+func (h *AgentStreamHandler) handleRAGIteration(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.RAGIterationData)
+	if !ok {
+		return nil
+	}
+
+	metadata := map[string]interface{}{
+		"round":   data.Round,
+		"action":  data.Action,
+		"content": data.Content,
+		"done":    data.Done,
+	}
+	if data.Action == "retrieve" {
+		metadata["retrieve_query"] = data.RetrieveQuery
+		metadata["chunk_count"] = data.ChunkCount
+	}
+
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeRAGIteration,
+		Content:   data.Content,
+		Done:      data.Done,
+		Timestamp: time.Now(),
+		Data:      metadata,
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append rag_iteration event to stream failed", "error", err)
+	}
+
+	h.updateMessagePipelineStages(map[string]interface{}{
+		fmt.Sprintf("rag_round_%d", data.Round): map[string]interface{}{
+			"action":        data.Action,
+			"content":       data.Content,
+			"retrieveQuery": data.RetrieveQuery,
+			"chunkCount":    data.ChunkCount,
+		},
+	})
+
+	return nil
 }

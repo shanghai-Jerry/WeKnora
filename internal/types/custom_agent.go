@@ -22,6 +22,8 @@ const (
 	BuiltinKnowledgeGraphExpertID = "builtin-knowledge-graph-expert"
 	// BuiltinDocumentAssistantID is the ID for the built-in document assistant agent
 	BuiltinDocumentAssistantID = "builtin-document-assistant"
+	// BuiltinRetrieveThenGenerateID is the ID for the built-in retrieve-then-generate agent
+	BuiltinRetrieveThenGenerateID = "builtin-retrieve-then-generate"
 )
 
 // AgentMode constants for agent running mode
@@ -30,6 +32,8 @@ const (
 	AgentModeQuickAnswer = "quick-answer"
 	// AgentModeSmartReasoning is the ReAct mode for multi-step reasoning
 	AgentModeSmartReasoning = "smart-reasoning"
+	// AgentModeRetrieveThenGenerate is the iterative retrieve-then-generate mode
+	AgentModeRetrieveThenGenerate = "retrieve-then-generate"
 )
 
 // CustomAgent represents a configurable AI agent (similar to GPTs)
@@ -190,6 +194,12 @@ type CustomAgentConfig struct {
 	// Fallback prompt (when FallbackStrategy is "model")
 	FallbackPrompt string `yaml:"fallback_prompt" json:"fallback_prompt"`
 
+	// ===== Retrieve-then-Generate Settings =====
+	// Maximum iteration rounds for retrieve-then-generate mode (default: 3)
+	RAGMaxRounds int `yaml:"rag_max_rounds" json:"rag_max_rounds"`
+	// Custom system prompt for retrieve-then-generate mode (optional, uses default if empty)
+	RAGRetrievalPrompt string `yaml:"rag_retrieval_prompt" json:"rag_retrieval_prompt,omitempty"`
+
 	// ===== Suggested Prompts =====
 	// 推荐问题列表，用于在前端对话面板展示快捷提问
 	SuggestedPrompts []string `yaml:"suggested_prompts" json:"suggested_prompts,omitempty"`
@@ -270,11 +280,28 @@ func (a *CustomAgent) EnsureDefaults() {
 	if a.Config.AgentMode == AgentModeSmartReasoning {
 		a.Config.MultiTurnEnabled = true
 	}
+	// Retrieve-then-generate defaults
+	if a.Config.AgentMode == AgentModeRetrieveThenGenerate {
+		if a.Config.RAGMaxRounds == 0 {
+			a.Config.RAGMaxRounds = 3
+		}
+		if !a.Config.MultiTurnEnabled {
+			a.Config.MultiTurnEnabled = true
+		}
+		if a.Config.HistoryTurns == 0 {
+			a.Config.HistoryTurns = 5
+		}
+	}
 }
 
 // IsAgentMode returns true if this agent uses ReAct agent mode
 func (a *CustomAgent) IsAgentMode() bool {
 	return a.Config.AgentMode == AgentModeSmartReasoning
+}
+
+// IsRetrieveThenGenerateMode returns true if this agent uses retrieve-then-generate mode
+func (a *CustomAgent) IsRetrieveThenGenerateMode() bool {
+	return a.Config.AgentMode == AgentModeRetrieveThenGenerate
 }
 
 // SuggestedQuestion 推荐问题
@@ -296,6 +323,7 @@ var BuiltinAgentRegistry = map[string]func(uint64) *CustomAgent{}
 var builtinAgentIDsOrdered = []string{
 	BuiltinQuickAnswerID,
 	BuiltinSmartReasoningID,
+	BuiltinRetrieveThenGenerateID,
 	BuiltinDeepResearcherID,
 	BuiltinDataAnalystID,
 	BuiltinKnowledgeGraphExpertID,

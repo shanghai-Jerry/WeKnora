@@ -71,6 +71,8 @@ const (
 	ResponseTypeKeywordQuery ResponseType = "keyword_query"
 	// Query intent explore response type (for KnowledgeQA pipeline stages)
 	ResponseTypeQueryIntentExplore ResponseType = "query_intent_explore"
+	// RAG iteration response type (for retrieve-then-generate mode)
+	ResponseTypeRAGIteration ResponseType = "rag_iteration"
 )
 
 // StreamResponse stream response

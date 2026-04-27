@@ -54,6 +54,11 @@ type PipelineRequest struct {
 	WebFetchEnabled     bool   `json:"-"` // Auto-fetch full page content for web search results after rerank
 	WebFetchTopN        int    `json:"-"` // Max pages to fetch (default 3)
 	Language            string `json:"-"`
+
+	// Retrieve-then-generate config
+	EnableRetrieveThenGenerate bool   `json:"-"`
+	RAGMaxRounds              int    `json:"-"`
+	RAGRetrievalPrompt        string `json:"-"`
 }
 
 // QueryIntent represents the classified intent of a user query.
@@ -104,6 +109,7 @@ type PipelineState struct {
 	QuotedContext        string             `json:"-"` // Quoted message text, injected at LLM prompt stage
 	SystemPromptOverride string             `json:"-"`
 	IntentExploreData    *IntentExploreData `json:"intent_explore_data,omitempty"`
+	RAGIterationState    *RAGIterationState `json:"-"`
 }
 
 // PipelineContext holds runtime context for the current pipeline execution.
@@ -111,6 +117,27 @@ type PipelineContext struct {
 	EventBus      EventBusInterface `json:"-"`
 	MessageID     string            `json:"-"`
 	UserMessageID string            `json:"-"`
+}
+
+// RAGIterationState holds mutable state for the retrieve-then-generate iteration loop.
+type RAGIterationState struct {
+	CurrentRound  int                `json:"current_round"`
+	MaxRounds     int                `json:"max_rounds"`
+	IsCompleted   bool               `json:"is_completed"`
+	FinalAnswer   string             `json:"final_answer"`
+	Intermediary  string             `json:"intermediary"`
+	ReferenceText string             `json:"reference_text"`
+	AllReferences []*SearchResult    `json:"all_references"`
+	IterationSteps []RAGIterationStep `json:"iteration_steps"`
+}
+
+// RAGIterationStep records details of a single retrieve-then-generate round.
+type RAGIterationStep struct {
+	Round           int             `json:"round"`
+	LLMAction       string          `json:"llm_action"`
+	Content         string          `json:"content"`
+	RetrieveQuery   string          `json:"retrieve_query,omitempty"`
+	RetrievedChunks []*SearchResult `json:"retrieved_chunks,omitempty"`
 }
 
 // ChatManage represents the full configuration, state and runtime context
@@ -207,6 +234,9 @@ func (c *ChatManage) Clone() *ChatManage {
 			WebFetchEnabled:          c.WebFetchEnabled,
 			WebFetchTopN:             c.WebFetchTopN,
 			Language:                 c.Language,
+			EnableRetrieveThenGenerate: c.EnableRetrieveThenGenerate,
+			RAGMaxRounds:             c.RAGMaxRounds,
+			RAGRetrievalPrompt:       c.RAGRetrievalPrompt,
 		},
 		PipelineState: PipelineState{
 			RewriteQuery:         c.RewriteQuery,
@@ -242,6 +272,7 @@ const (
 	FILTER_TOP_K           EventType = "filter_top_k"
 	MEMORY_RETRIEVAL       EventType = "memory_retrieval"
 	MEMORY_STORAGE         EventType = "memory_storage"
+	RAG_ITERATE            EventType = "rag_iterate"
 )
 
 // PipelineBuilder dynamically assembles a pipeline as an ordered list of EventTypes.

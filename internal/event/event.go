@@ -60,6 +60,9 @@ const (
 	EventAgentGraphData   EventType = "graph_data"   // 知识图谱数据
 	EventAgentFinalAnswer EventType = "final_answer" // 最终答案
 
+	// RAG iteration events (for retrieve-then-generate mode)
+	EventRAGIteration EventType = "rag_iteration" // RAG 迭代步骤
+
 	// Error events
 	EventError EventType = "error" // 错误事件
 
