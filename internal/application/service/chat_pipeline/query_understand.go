@@ -9,6 +9,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/event"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -180,14 +181,16 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 
 	// --- Emit query rewritten event for frontend pipeline stages display ---
 	if chatManage.EventBus != nil && chatManage.RewriteQuery != chatManage.Query {
-		chatManage.EventBus.Emit(ctx, types.Event{
-			Type:      types.EventType(event.EventQueryRewritten),
-			SessionID: chatManage.SessionID,
-			Data: event.QueryRewrittenData{
-				OriginalQuery:  chatManage.Query,
-				RewrittenQuery: chatManage.RewriteQuery,
-			},
-		})
+		logger.Debugf(ctx, "QueryUnderstand [no event bus]: query rewritten, session_id: %s, original_query: %s, rewritten_query: %s",
+			chatManage.SessionID, chatManage.Query, chatManage.RewriteQuery)
+		// chatManage.EventBus.Emit(ctx, types.Event{
+		// 	Type:      types.EventType(event.EventQueryRewritten),
+		// 	SessionID: chatManage.SessionID,
+		// 	Data: event.QueryRewrittenData{
+		// 		OriginalQuery:  chatManage.Query,
+		// 		RewrittenQuery: chatManage.RewriteQuery,
+		// 	},
+		// })
 	}
 
 	// Persist image description asynchronously — this DB write does not affect
