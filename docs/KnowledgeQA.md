@@ -566,6 +566,104 @@ knowledge_qa:
 
 ---
 
+## max_tokens 和 max_completion_tokens 参数说明
+
+### 参数概述
+
+| 参数 | 类型 | 说明 | 主要用途 |
+|------|------|------|---------|
+| `max_tokens` | int | 最大 token 数 | 主要用于 Ollama 等本地模型（`num_predict` 参数） |
+| `max_completion_tokens` | int | 最大完成 token 数 | 用于 OpenAI、阿里云等远程 API |
+
+### 定义位置
+
+1. **ChatOptions 结构体** - `internal/models/chat/chat.go:33-34`
+   ```go
+   MaxTokens           int `json:"max_tokens"`
+   MaxCompletionTokens int `json:"max_completion_tokens"`
+   ```
+
+2. **SummaryConfig 结构体** - `internal/config/config.go:119-127`
+   ```go
+   MaxTokens           int `yaml:"max_tokens"            json:"max_tokens"`
+   MaxCompletionTokens int `yaml:"max_completion_tokens" json:"max_completion_tokens"`
+   ```
+
+3. **CustomAgentConfig 结构体** - `internal/types/custom_agent.go:91`
+   ```go
+   MaxCompletionTokens int `yaml:"max_completion_tokens" json:"max_completion_tokens"`
+   ```
+
+### 默认值和来源
+
+#### 系统级默认值
+
+| 来源 | 文件位置 | 值 | 说明 |
+|------|---------|-----|------|
+| 主配置文件 | `config/config.yaml:31` | `65535` | `conversation.summary.max_completion_tokens` |
+| 组织配置 | `config/config-org.yaml:28` | `2048` | 组织级默认配置 |
+| 前端默认值 | `frontend/src/views/settings/AgentSettings.vue:665` | `2048` | 前端表单默认值 |
+| 前端默认值 | `frontend/src/views/agent/AgentEditorModal.vue:1492` | `2048` | Agent 编辑器默认值 |
+| 数据库迁移默认 | `migrations/versioned/000006_custom_agents.up.sql:94,143` | `2048` | 新建 agent 的默认值 |
+
+#### 内置 Agent 配置
+
+| Agent | 文件位置 | max_completion_tokens 值 |
+|-------|---------|------------------------|
+| Quick Answer (RAG) | `config/builtin_agents.yaml:30` | `2048` |
+| Smart Reasoning (ReAct) | `config/builtin_agents.yaml:72` | `2048` |
+| Deep Researcher | `config/builtin_agents.yaml:121` | `4096` |
+
+### 取值范围
+
+- **最小值**: `1`（后端验证，见 `internal/handler/tenant.go:914`）
+- **最大值**: `100000`（后端验证和前端限制）
+- **前端输入限制**: `min=100`, `max=100000`（`frontend/src/views/agent/AgentEditorModal.vue:310`）
+
+### 参数优先级（从低到高）
+
+1. 系统配置默认值（`config.yaml` 中的 `summary.maxCompletionTokens`）
+2. CustomAgent 配置（`custom_agent.config.max_completion_tokens`）
+3. 请求级别覆盖（通过 `SummaryConfig` 传递）
+
+### 代码中的使用
+
+#### 1. API 请求构建 - `internal/models/chat/remote_api.go:184-188`
+
+```go
+if opts.MaxTokens > 0 {
+    req.MaxTokens = opts.MaxTokens
+}
+if opts.MaxCompletionTokens > 0 {
+    req.MaxCompletionTokens = opts.MaxCompletionTokens
+}
+```
+
+#### 2. Ollama 模型适配 - `internal/models/chat/ollama.go:100-101`
+
+```go
+if opts.MaxTokens > 0 {
+    chatReq.Options["num_predict"] = opts.MaxTokens
+}
+```
+
+#### 3. Agent 配置覆盖 - `internal/application/service/session_qa_helpers.go:140-143`
+
+```go
+if customAgent.Config.MaxCompletionTokens > 0 {
+    cm.SummaryConfig.MaxCompletionTokens = customAgent.Config.MaxCompletionTokens
+    logger.Infof(ctx, "Using custom agent's max_completion_tokens: %d", customAgent.Config.MaxCompletionTokens)
+}
+```
+
+### 两个参数的区别
+
+- **`max_tokens`**: 传统参数，部分模型（如 Ollama、旧版 OpenAI API）使用。在 KnowledgeQA 中通过 `SummaryConfig.MaxTokens` 传递。
+- **`max_completion_tokens`**: OpenAI 新版 API 使用的参数（2023年11月后），用于限制生成的最大 token 数。在系统中是主要使用的参数。
+- **兼容性处理**: `remote_api.go` 会同时检查两个参数，根据模型 API 的要求设置相应的字段。
+
+---
+
 ## 错误处理
 
 ### 常见错误场景

@@ -137,12 +137,12 @@ templates:
       针对映射表中的每个实体生成检索路径。
       - 维度可选：屈光发育、进展风险、检查评估、矫正方案、防控效果、随访管理
       - 确保每个维度与实体有直接关联
-      - **重要**：entity 字段必须使用 entity_mapping 中对应的标准术语（完整形式，含英文注释）
+      - **重要**：entity 字段必须使用 entity_mapping 中对应的标准术语
 
       ## 步骤4：生成实体关联检索路径
       仅当存在明确的循证依据时生成关联。
       - 关联类型：因果/协同/伴随/风险因素
-      - **重要**：source_entity 和 target_entity 必须使用 entity_mapping 中对应的标准术语（完整形式，含英文注释）
+      - **重要**：source_entity 和 target_entity 必须使用 entity_mapping 中对应的标准术语
 
       ## 步骤5：创建自然检索语句
       - 检索词应符合视光临床问题表述习惯
@@ -158,7 +158,6 @@ templates:
       ## 术语一致性要求
       - **所有路径中的实体字段必须严格使用 entity_mapping 中的标准术语（value值）**
       - entity、source_entity、target_entity 不得自行构造或简化术语
-      - 禁止省略括号中的英文注释，必须使用映射后的完整标准术语
 
       ## 质量控制要求
       - 控制实体和关系数量，保留高质量因子
@@ -196,15 +195,15 @@ templates:
         "analysis_paths": [
           {
             "path_id": 整数,
-            "entity": "标准术语（必须与entity_mapping中的value完全一致，包括英文注释）",
+            "entity": "标准术语（必须与entity_mapping中的value完全一致）",
             "dimensions": ["维度1", "维度2"],
             "merged_search_string": "检索短语",
             "reason": "循证依据"
           },
           {
             "path_id": 整数,
-            "source_entity": "源实体（必须与entity_mapping中的value完全一致，包括英文注释）",
-            "target_entity": "目标实体（必须与entity_mapping中的value完全一致，包括英文注释）",
+            "source_entity": "源实体（必须与entity_mapping中的value完全一致）",
+            "target_entity": "目标实体（必须与entity_mapping中的value完全一致）",
             "interaction_type": "因果/协同/风险因素",
             "mechanistic_link": "机制描述",
             "merged_search_string": "关联检索短语",
@@ -312,7 +311,7 @@ templates:
        }
        ```
 
-       **注意**：示例中所有的 entity、source_entity、target_entity 均严格对应 entity_mapping 中的标准术语（完整形式，含英文注释）。
+       **注意**：示例中所有的 entity、source_entity、target_entity 均严格对应 entity_mapping 中的标准术语
 
       user: |
       ## User Question

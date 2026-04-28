@@ -226,6 +226,37 @@ retrieveEngine.BatchIndex(ctx, embeddingModel, indexInfoList)
 ### 提示词模板
 配置在 `config.yaml` 中的 `conversation.generate_questions_prompt`
 
+### AI生成问题的作用
+
+AI为文档分块生成的问题主要用于以下场景：
+
+1. **提高检索召回率（Retrieval Recall）**
+   - 生成的问题与文档块内容一起被向量化并建立索引（`knowledge.go:2508`）
+   - 当用户提问时，系统可以将用户问题与这些生成的问题进行语义匹配
+   - 即使原文没有直接包含用户搜索的关键词，也能通过相关问题找到对应的文档块
+
+2. **推荐问题（Suggested Questions）**
+   - 在对话界面开场前展示上下文相关的推荐问题
+   - API端点：`GET /api/v1/agents/:id/suggested-questions`
+   - 实现位置：`internal/application/service/custom_agent.go:423` `GetSuggestedQuestions`
+   - 前端展示位置：
+     - 创建聊天页面：`frontend/src/views/creatChat/creatChat.vue`
+     - 聊天页面：`frontend/src/views/chat/index.vue`
+   - 推荐问题来源优先级：
+     1. Agent配置的 `suggested_prompts`（最高优先级）
+     2. 知识库文档块中AI生成的 `generated_questions`
+
+3. **文档内容展示**
+   - 在文档查看界面展示每个分块对应的生成问题
+   - 实现位置：`frontend/src/components/doc-content.vue:563`
+   - 用户可查看、删除生成的问题（兼容新旧格式）
+
+4. **问题生成策略**
+   - 问题基于文档块内容生成，模拟用户真实的搜索意图
+   - 每个问题都是自包含的，不含代词或模糊引用
+   - 问题格式：`How to...`、`What is...`、`Why does...` 等
+   - 优先生成关于主题、关键概念、操作方法的问题，而非琐碎细节
+
 ## 6. 摘要生成（Summary Generation）
 
 ### 触发条件

@@ -601,6 +601,114 @@ mcp:
 
 ---
 
+## max_tokens 和 max_completion_tokens 参数说明
+
+### 参数概述
+
+| 参数 | 类型 | 说明 | 主要用途 |
+|------|------|------|---------|
+| `max_tokens` | int | 最大 token 数 | 主要用于 Ollama 等本地模型（`num_predict` 参数） |
+| `max_completion_tokens` | int | 最大完成 token 数 | 用于 OpenAI、阿里云等远程 API |
+
+### 定义位置
+
+1. **ChatOptions 结构体** - `internal/models/chat/chat.go:33-34`
+   ```go
+   MaxTokens           int `json:"max_tokens"`
+   MaxCompletionTokens int `json:"max_completion_tokens"`
+   ```
+
+2. **CustomAgentConfig 结构体** - `internal/types/custom_agent.go:91`
+   ```go
+   MaxCompletionTokens int `yaml:"max_completion_tokens" json:"max_completion_tokens"`
+   ```
+
+3. **AgentConfig 运行时** - `internal/types/agent.go`
+   - Agent 模式下通过 `CustomAgentConfig.MaxCompletionTokens` 传递到 `SummaryConfig`
+
+### 默认值和来源
+
+#### 系统级默认值
+
+| 来源 | 文件位置 | 值 | 说明 |
+|------|---------|-----|------|
+| 主配置文件 | `config/config.yaml:31` | `65535` | `conversation.summary.max_completion_tokens` |
+| 组织配置 | `config/config-org.yaml:28` | `2048` | 组织级默认配置 |
+| 前端默认值 | `frontend/src/views/agent/AgentEditorModal.vue:1492` | `2048` | Agent 编辑器默认值 |
+| 前端默认值 | `frontend/src/views/settings/AgentSettings.vue:665` | `2048` | 设置页面默认值 |
+| 数据库迁移默认 | `migrations/versioned/000006_custom_agents.up.sql:94,143` | `2048` | 新建 agent 的默认值 |
+
+#### 内置 Agent 配置（AgentQA 相关）
+
+| Agent | 文件位置 | max_completion_tokens 值 | 模式 |
+|-------|---------|------------------------|------|
+| Smart Reasoning (ReAct) | `config/builtin_agents.yaml:72` | `2048` | Agent 模式 |
+| Deep Researcher | `config/builtin_agents.yaml:121` | `4096` | Agent 模式（多步推理需要更多 token） |
+
+### 取值范围
+
+- **最小值**: `1`（后端验证，见 `internal/handler/tenant.go:914`）
+- **最大值**: `100000`（后端验证和前端限制）
+- **前端输入限制**: `min=100`, `max=100000`（`frontend/src/views/agent/AgentEditorModal.vue:310`）
+- **验证错误**: `"max_completion_tokens must be between 1 and 100000"`
+
+### 参数优先级（AgentQA 流程）
+
+1. **系统配置默认值**: `config.yaml` → `SummaryConfig.MaxCompletionTokens`
+2. **CustomAgent 配置**: `custom_agent.config.max_completion_tokens`
+3. **运行时覆盖**: 通过 `applyAgentOverridesToChatManage()` 应用到 `ChatManage.SummaryConfig`
+
+### 代码中的使用
+
+#### 1. Agent 配置覆盖 - `internal/application/service/session_qa_helpers.go:140-143`
+
+```go
+if customAgent.Config.MaxCompletionTokens > 0 {
+    cm.SummaryConfig.MaxCompletionTokens = customAgent.Config.MaxCompletionTokens
+    logger.Infof(ctx, "Using custom agent's max_completion_tokens: %d", customAgent.Config.MaxCompletionTokens)
+}
+```
+
+#### 2. API 请求构建 - `internal/models/chat/remote_api.go:184-188`
+
+```go
+if opts.MaxTokens > 0 {
+    req.MaxTokens = opts.MaxTokens
+}
+if opts.MaxCompletionTokens > 0 {
+    req.MaxCompletionTokens = opts.MaxCompletionTokens
+}
+```
+
+#### 3. Agent 引擎调用
+
+在 AgentQA 的 ReAct 循环中，每次调用 LLM 时都会传递 `ChatOptions`，其中包含 `MaxCompletionTokens`：
+
+```go
+// internal/agent/engine.go - callLLMWithRetry()
+opts := &chat.ChatOptions{
+    Temperature:         e.config.Temperature,
+    MaxCompletionTokens: e.config.MaxCompletionTokens,  // 从 agent config 获取
+    // ...
+}
+```
+
+### AgentQA 特殊说明
+
+- **多轮推理影响**: AgentQA 的 ReAct 循环可能进行多轮 LLM 调用，`max_completion_tokens` 限制的是**单次调用**的最大生成 token 数，而非整个会话的总 token 数
+- **与 MaxIterations 的区别**:
+  - `max_completion_tokens`: 限制单次 LLM 调用的输出长度
+  - `MaxIterations`: 限制 ReAct 循环的最大迭代次数（默认 10 次）
+- **Deep Researcher Agent**: 由于需要进行更深入的分析和推理，默认 `max_completion_tokens` 设置为 `4096`，比普通 agent 的 `2048` 更高
+
+### 两个参数的区别
+
+- **`max_tokens`**: 传统参数，部分模型（如 Ollama、旧版 OpenAI API）使用。在 AgentQA 中较少直接使用。
+- **`max_completion_tokens`**: OpenAI 新版 API 使用的参数（2023年11月后），是 AgentQA 中主要使用的参数，通过 `CustomAgentConfig` 配置。
+- **兼容性处理**: `remote_api.go` 会同时检查两个参数，根据模型 API 的要求设置相应的字段。
+
+---
+
 ## 错误处理
 
 ### 常见错误场景
