@@ -202,8 +202,6 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 		"final_query_count": len(output.FinalSearchQueries),
 	})
 
-	p.searchMultiplePaths(ctx, chatManage, output.FinalSearchQueries)
-
 	if chatManage.EventBus != nil {
 		paths := make([]*event.AnalysisPath, len(output.AnalysisPaths))
 		for i, path := range output.AnalysisPaths {
@@ -230,6 +228,8 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 				TotalSearchCount:   len(chatManage.SearchResult),
 			}})
 	}
+	// 优先触发sse事件，再触发搜索
+	p.searchMultiplePaths(ctx, chatManage, output.FinalSearchQueries)
 
 	return next()
 }
@@ -295,6 +295,18 @@ func (p *PluginQueryIntentExplore) searchSinglePath(ctx context.Context,
 }
 
 func (p *PluginQueryIntentExplore) parseOutput(content string) *intentExploreOutput {
+	return ParseIntentExploreOutput(content)
+}
+
+// IntentExploreOutput is the exported version of intentExploreOutput for use by other packages.
+type IntentExploreOutput = intentExploreOutput
+
+// IntentExploreAnalysisPath is the exported version of analysisPath for use by other packages.
+type IntentExploreAnalysisPath = analysisPath
+
+// ParseIntentExploreOutput extracts and parses the intent explore JSON from LLM response content.
+// Returns nil if the content is empty or the JSON cannot be parsed.
+func ParseIntentExploreOutput(content string) *IntentExploreOutput {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil
@@ -309,7 +321,7 @@ func (p *PluginQueryIntentExplore) parseOutput(content string) *intentExploreOut
 
 	content = content[start : end+1]
 
-	var out intentExploreOutput
+	var out IntentExploreOutput
 	if err := json.Unmarshal([]byte(content), &out); err != nil {
 		logger.Debugf(context.Background(), "IntentExplore: JSON parse error: %v", err)
 		return nil

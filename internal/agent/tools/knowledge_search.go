@@ -127,6 +127,11 @@ type KnowledgeSearchTool struct {
 	rerankModel          rerank.Reranker
 	chatModel            chat.Chat      // Optional chat model for LLM-based reranking
 	config               *config.Config // Global config for fallback values
+	// IntentExploreQueries are pre-decomposed queries from the intent explore phase.
+	// When non-empty, the tool uses these queries in the first-round call (via system prompt instruction),
+	// and the field is NOT cleared here - clearing is handled by the system prompt lifecycle.
+	// The system prompt instructs the LLM to use these queries in the first knowledge_search call.
+	IntentExploreQueries []string // runtime only, NOT serialized
 }
 
 // NewKnowledgeSearchTool creates a new knowledge search tool
@@ -207,6 +212,14 @@ func (t *KnowledgeSearchTool) Execute(ctx context.Context, args json.RawMessage)
 
 	// Parse query parameter
 	queries := input.Queries
+
+	// If IntentExploreQueries is set (from pre-search phase), use them as queries
+	// and clear the field so subsequent rounds don't re-use them.
+	if len(t.IntentExploreQueries) > 0 {
+		logger.Infof(ctx, "[Tool][KnowledgeSearch] Using pre-defined intent explore queries: %v", t.IntentExploreQueries)
+		queries = t.IntentExploreQueries
+		t.IntentExploreQueries = nil // clear after first use
+	}
 
 	// Validate: query must be provided
 	if len(queries) == 0 {

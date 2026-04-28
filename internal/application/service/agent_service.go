@@ -376,7 +376,7 @@ func (s *agentService) registerTools(
 		case tools.ToolTodoWrite:
 			toolToRegister = tools.NewTodoWriteTool()
 		case tools.ToolKnowledgeSearch:
-			toolToRegister = tools.NewKnowledgeSearchTool(
+			tool := tools.NewKnowledgeSearchTool(
 				s.knowledgeBaseService,
 				s.knowledgeService,
 				s.chunkService,
@@ -385,6 +385,12 @@ func (s *agentService) registerTools(
 				chatModel,
 				s.cfg,
 			)
+			if len(config.IntentExploreQueries) > 0 {
+				tool.IntentExploreQueries = config.IntentExploreQueries
+				logger.Infof(ctx, "Injected %d intent explore queries into knowledge_search tool",
+					len(config.IntentExploreQueries))
+			}
+			toolToRegister = tool
 		case tools.ToolGrepChunks:
 			toolToRegister = tools.NewGrepChunksTool(s.db, config.SearchTargets)
 			logger.Infof(ctx, "Registered grep_chunks tool with searchTargets: %d targets", len(config.SearchTargets))

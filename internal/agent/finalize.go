@@ -36,8 +36,9 @@ func (e *AgentEngine) streamFinalAnswerToEventBus(
 		e.config.WebSearchEnabled,
 		e.selectedDocs,
 		&BuildSystemPromptOptions{
-			Language: language,
-			Config:   e.appConfig,
+			Language:           language,
+			Config:             e.appConfig,
+			IntentExploreBlock: e.config.IntentExploreSystemBlock,
 		},
 		e.systemPromptTemplate,
 	)

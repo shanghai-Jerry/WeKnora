@@ -295,9 +295,10 @@ func renderPromptPlaceholdersWithStatus(
 
 // BuildSystemPromptOptions contains optional parameters for BuildSystemPrompt
 type BuildSystemPromptOptions struct {
-	SkillsMetadata []*skills.SkillMetadata
-	Language       string         // User language name for {{language}} placeholder (e.g. "Chinese (Simplified)")
-	Config         *config.Config // Config for reading prompt templates; nil falls back to hardcoded defaults
+	SkillsMetadata      []*skills.SkillMetadata
+	Language            string         // User language name for {{language}} placeholder (e.g. "Chinese (Simplified)")
+	Config              *config.Config // Config for reading prompt templates; nil falls back to hardcoded defaults
+	IntentExploreBlock  string         // Intent explore analysis block appended to system prompt
 }
 
 // BuildSystemPrompt builds the progressive RAG system prompt
@@ -354,6 +355,11 @@ func BuildSystemPromptWithOptions(
 	// Append skills metadata if available (Level 1 - Progressive Disclosure)
 	if options != nil && len(options.SkillsMetadata) > 0 {
 		basePrompt += formatSkillsMetadata(options.SkillsMetadata)
+	}
+
+	// Append intent explore analysis if available
+	if options != nil && options.IntentExploreBlock != "" {
+		basePrompt += "\n\n" + options.IntentExploreBlock
 	}
 
 	return basePrompt

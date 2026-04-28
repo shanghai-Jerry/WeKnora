@@ -183,31 +183,21 @@ func (e *AgentEngine) Execute(
 	// Extract user language from context for prompt placeholder
 	language := types.LanguageNameFromContext(ctx)
 	var systemPrompt string
-	if e.skillsManager != nil && e.skillsManager.IsEnabled() {
-		skillsMetadata := e.skillsManager.GetAllMetadata()
-		systemPrompt = BuildSystemPromptWithOptions(
-			e.knowledgeBasesInfo,
-			e.config.WebSearchEnabled,
-			e.selectedDocs,
-			&BuildSystemPromptOptions{
-				SkillsMetadata: skillsMetadata,
-				Language:       language,
-				Config:         e.appConfig,
-			},
-			e.systemPromptTemplate,
-		)
-	} else {
-		systemPrompt = BuildSystemPromptWithOptions(
-			e.knowledgeBasesInfo,
-			e.config.WebSearchEnabled,
-			e.selectedDocs,
-			&BuildSystemPromptOptions{
-				Language: language,
-				Config:   e.appConfig,
-			},
-			e.systemPromptTemplate,
-		)
+	promptOpts := &BuildSystemPromptOptions{
+		Language:           language,
+		Config:             e.appConfig,
+		IntentExploreBlock: e.config.IntentExploreSystemBlock,
 	}
+	if e.skillsManager != nil && e.skillsManager.IsEnabled() {
+		promptOpts.SkillsMetadata = e.skillsManager.GetAllMetadata()
+	}
+	systemPrompt = BuildSystemPromptWithOptions(
+		e.knowledgeBasesInfo,
+		e.config.WebSearchEnabled,
+		e.selectedDocs,
+		promptOpts,
+		e.systemPromptTemplate,
+	)
 	logger.Debugf(ctx, "[Agent] SystemPrompt: %d chars", len(systemPrompt))
 
 	// Initialize messages with history

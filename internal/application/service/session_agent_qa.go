@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/agent/tools"
+	chatpipeline "github.com/Tencent/WeKnora/internal/application/service/chat_pipeline"
 	llmcontext "github.com/Tencent/WeKnora/internal/application/service/llmcontext"
 	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -143,6 +145,43 @@ func (s *sessionService) AgentQA(
 
 	// Create agent engine with EventBus and ContextManager
 	logger.Info(ctx, "Creating agent engine")
+
+	// Execute intent explore before creating the engine if enabled.
+	// Rules:
+	//   - Only execute for "new topics" (no or minimal history context).
+	//   - For follow-up questions, skip to avoid misleading the agent.
+	//   - Once IntentExploreQueries is set, it's consumed and cleared by KnowledgeSearchTool
+	//     after the first-round call, so it won't affect subsequent rounds.
+	enableIntentExplore := s.cfg.Conversation.EnableQueryIntentExplore
+	if req.CustomAgent.Config.EnableQueryIntentExplore != nil {
+		enableIntentExplore = *req.CustomAgent.Config.EnableQueryIntentExplore
+	}
+	if enableIntentExplore {
+		// Determine if this is a "new topic" or follow-up question.
+		// Heuristic: if the LLM context (history) has <= 1 messages, treat as new topic.
+		isNewTopic := len(llmContext) <= 1
+		if isNewTopic {
+			intentData := s.executeIntentExplore(ctx, req.Query, summaryModel, eventBus, sessionID)
+			if intentData != nil && len(intentData.FinalSearchQueries) > 0 {
+				agentConfig.IntentExploreSystemBlock = formatIntentExploreSystemBlock(intentData)
+				agentConfig.IntentExploreQueries = intentData.FinalSearchQueries
+				logger.Infof(ctx, "Intent explore completed (new topic): %d paths, %d queries",
+					len(intentData.AnalysisPaths), len(intentData.FinalSearchQueries))
+			}
+		} else {
+			logger.Infof(ctx, "Intent explore skipped (follow-up question, history=%d messages)", len(llmContext))
+		}
+	}
+	if enableIntentExplore {
+		intentData := s.executeIntentExplore(ctx, req.Query, summaryModel, eventBus, sessionID)
+		if intentData != nil && len(intentData.FinalSearchQueries) > 0 {
+			agentConfig.IntentExploreSystemBlock = formatIntentExploreSystemBlock(intentData)
+			agentConfig.IntentExploreQueries = intentData.FinalSearchQueries
+			logger.Infof(ctx, "Intent explore completed: %d paths, %d search queries",
+				len(intentData.AnalysisPaths), len(intentData.FinalSearchQueries))
+		}
+	}
+
 	engine, err := s.agentService.CreateAgentEngine(
 		ctx,
 		agentConfig,
@@ -361,4 +400,156 @@ func (s *sessionService) getContextForSession(
 	}
 
 	return history, nil
+}
+
+// executeIntentExplore performs pre-search intent exploration before the agent engine starts.
+// It uses the intent explore prompt to decompose the user query into multiple search paths.
+// The resulting queries are injected into the system prompt to guide the agent's
+// first-round knowledge_search call, NOT executed here.
+func (s *sessionService) executeIntentExplore(
+	ctx context.Context,
+	query string,
+	chatModel chat.Chat,
+	eventBus *event.EventBus,
+	sessionID string,
+) *types.IntentExploreData {
+	// 1. Read prompt config
+	promptContent := s.cfg.Conversation.IntentExplorePrompt
+	if promptContent == "" {
+		logger.Infof(ctx, "[IntentExplore] No prompt configured, skipping")
+		return nil
+	}
+	userContent := s.cfg.Conversation.IntentExplorePromptUser
+	if userContent == "" {
+		userContent = query
+	} else {
+		userContent = strings.ReplaceAll(userContent, "{{query}}", query)
+	}
+
+	// 2. Call LLM to decompose query
+	messages := []chat.Message{
+		{Role: "system", Content: promptContent},
+		{Role: "user", Content: userContent},
+	}
+	opt := &chat.ChatOptions{
+		Temperature:         0.3,
+		MaxCompletionTokens: 65536,
+	}
+
+	responseChan, err := chatModel.ChatStream(ctx, messages, opt)
+	if err != nil {
+		logger.Warnf(ctx, "[IntentExplore] Failed to start chat stream: %v", err)
+		return nil
+	}
+
+	var fullContent strings.Builder
+	for response := range responseChan {
+		switch response.ResponseType {
+		case types.ResponseTypeAnswer:
+			fullContent.WriteString(response.Content)
+		case types.ResponseTypeError:
+			logger.Warnf(ctx, "[IntentExplore] Stream error: %s", response.Content)
+			return nil
+		}
+	}
+
+	fullContentString := fullContent.String()
+	logger.Infof(ctx, "[IntentExplore] LLM response: %d chars", len(fullContentString))
+
+	// 3. Parse output
+	output := chatpipeline.ParseIntentExploreOutput(fullContentString)
+	if output == nil || len(output.FinalSearchQueries) == 0 {
+		logger.Warnf(ctx, "[IntentExplore] Failed to parse output or no search queries")
+		return nil
+	}
+
+	// 4. Build IntentExploreData (no search executed here)
+	intentData := &types.IntentExploreData{
+		OriginalQuery:      query,
+		AnalysisPaths:      make([]*types.AnalysisPath, 0, len(output.AnalysisPaths)),
+		FinalSearchQueries: output.FinalSearchQueries,
+		TotalSearchCount:   0,
+	}
+	for _, path := range output.AnalysisPaths {
+		intentData.AnalysisPaths = append(intentData.AnalysisPaths, &types.AnalysisPath{
+			PathID:               path.PathID,
+			Entity:               path.Entity,
+			Dimensions:           path.Dimensions,
+			MergedSearchString:   path.MergedSearchString,
+			Reason:               path.Reason,
+			SourceEntity:         path.SourceEntity,
+			TargetEntity:         path.TargetEntity,
+			InteractionType:      path.InteractionType,
+			MechanisticLink:      path.MechanisticLink,
+			ClinicalSignificance: path.ClinicalSignificance,
+		})
+	}
+
+	// 5. Emit EventQueryIntentExplore event (for frontend display)
+	if eventBus != nil {
+		paths := make([]*event.AnalysisPath, len(output.AnalysisPaths))
+		for i, path := range output.AnalysisPaths {
+			paths[i] = &event.AnalysisPath{
+				PathID:               path.PathID,
+				Entity:               path.Entity,
+				Dimensions:           path.Dimensions,
+				MergedSearchString:   path.MergedSearchString,
+				Reason:               path.Reason,
+				SourceEntity:         path.SourceEntity,
+				TargetEntity:         path.TargetEntity,
+				InteractionType:      path.InteractionType,
+				MechanisticLink:      path.MechanisticLink,
+				ClinicalSignificance: path.ClinicalSignificance,
+			}
+		}
+		eventBus.Emit(ctx, event.Event{
+			Type:      event.EventQueryIntentExplore,
+			SessionID: sessionID,
+			Data: event.QueryIntentExploreData{
+				OriginalQuery:      query,
+				AnalysisPaths:      paths,
+				FinalSearchQueries: output.FinalSearchQueries,
+				TotalSearchCount:   0, // No search executed here
+			},
+		})
+	}
+
+	logger.Infof(ctx, "[IntentExplore] Completed: %d paths, %d queries",
+		len(output.AnalysisPaths), len(output.FinalSearchQueries))
+
+	return intentData
+}
+
+// formatIntentExploreSystemBlock generates the intent analysis block for system prompt injection.
+// The queries are explicitly listed so the LLM can use them in knowledge_search calls.
+func formatIntentExploreSystemBlock(data *types.IntentExploreData) string {
+	var sb strings.Builder
+	sb.WriteString("## Intent Explore Analysis\n\n")
+	sb.WriteString("The user's query has been pre-analyzed with the following intent structure:\n\n")
+	sb.WriteString(fmt.Sprintf("Original Query: %s\n\n", data.OriginalQuery))
+	sb.WriteString("### Analysis Paths\n")
+	sb.WriteString("| Path | Entity | Dimensions | Search Strategy |\n")
+	sb.WriteString("|------|--------|-----------|-----------------|\n")
+	for _, path := range data.AnalysisPaths {
+		dims := strings.Join(path.Dimensions, ", ")
+		if dims == "" {
+			dims = "-"
+		}
+		searchStr := path.MergedSearchString
+		if searchStr == "" && path.SourceEntity != "" {
+			searchStr = fmt.Sprintf("%s ↔ %s (%s)", path.SourceEntity, path.TargetEntity, path.InteractionType)
+		}
+		sb.WriteString(fmt.Sprintf("| %d | %s | %s | %s |\n", path.PathID, path.Entity, dims, searchStr))
+	}
+	sb.WriteString(fmt.Sprintf("\n### Pre-analyzed Search Queries\n"))
+	sb.WriteString("The following queries have been pre-analyzed from the user's intent.\n")
+	sb.WriteString("**You MUST use these queries in your first-round knowledge_search call.**\n\n")
+	for i, q := range data.FinalSearchQueries {
+		sb.WriteString(fmt.Sprintf("%d. \"%s\"\n", i+1, q))
+	}
+	sb.WriteString("\n### Guidance\n")
+	sb.WriteString("- Use the above queries as the `queries` parameter in your first knowledge_search call.\n")
+	sb.WriteString("- Do NOT generate your own queries - use the pre-analyzed ones above.\n")
+	sb.WriteString("- If the pre-analyzed queries are insufficient, you may make additional knowledge_search calls.\n")
+	return sb.String()
 }

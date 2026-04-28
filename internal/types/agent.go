@@ -59,6 +59,13 @@ type AgentConfig struct {
 	// Whether to execute independent tool calls in parallel (default: false).
 	// When enabled and the LLM returns multiple tool calls, they run concurrently via errgroup.
 	ParallelToolCalls bool `json:"parallel_tool_calls,omitempty"`
+
+	// Intent explore queries from pre-search phase (runtime only).
+	// When set, the system prompt injects these queries and instructs the LLM
+	// to call knowledge_search in the first round with these queries.
+	IntentExploreQueries []string `json:"-"`
+	// Intent explore system prompt block (runtime only) - structured analysis (entities, dimensions, paths).
+	IntentExploreSystemBlock string `json:"-"`
 }
 
 // SessionAgentConfig represents session-level agent configuration

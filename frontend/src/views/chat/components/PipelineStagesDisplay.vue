@@ -31,10 +31,6 @@
               <span class="stat-value">{{ intentExplore.analysisPaths.length }} 条</span>
             </span>
             <span class="stat-divider"></span>
-            <span class="stat-item">
-              <span class="stat-label">召回分片</span>
-              <span class="stat-value">{{ intentExplore.totalSearchCount }} 个</span>
-            </span>
           </div>
 
           <!-- 统一知识网络画布 -->
