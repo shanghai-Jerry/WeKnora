@@ -37,11 +37,11 @@
           <div class="knowledge-network-wrapper">
             <div ref="canvasRef" class="network-canvas" :style="canvasStyle">
               <svg class="network-svg" :viewBox="`0 0 ${layout.contentW} ${layout.h}`" xmlns="http://www.w3.org/2000/svg">
-                <!-- 关系连线：极浅灰实线，无箭头 -->
+                <!-- 关系连线：中灰色实线，无箭头 -->
                 <g v-for="(edge, idx) in layout.edges" :key="`edge-${idx}`">
                   <line
                     :x1="edge.x1" :y1="edge.y1" :x2="edge.x2" :y2="edge.y2"
-                    stroke="#f0f0f0" stroke-width="0.8"
+                    stroke="#b0b8c4" stroke-width="1.2"
                   />
                   <text
                     v-if="edge.label"
@@ -50,7 +50,7 @@
                     text-anchor="middle"
                     dominant-baseline="middle"
                     font-size="9"
-                    fill="#bbb"
+                    fill="#7a8594"
                     style="pointer-events: none;"
                   >
                     {{ edge.label }}
@@ -61,7 +61,8 @@
                 <g v-for="(dl, idx) in layout.dimLines" :key="`dl-${idx}`">
                   <line
                     :x1="dl.x1" :y1="dl.y1" :x2="dl.x2" :y2="dl.y2"
-                    stroke="#f2f2f2" stroke-width="0.6"
+                    stroke="#a8b2be" stroke-width="1"
+                    stroke-dasharray="4 2"
                   />
                 </g>
               </svg>
@@ -644,14 +645,15 @@ const layout = computed<LayoutResult>(() => {
         }
       }
 
+      // 维度与所有实体的碰撞检测（包括父实体，确保维度不落在实体圆内）
       rawNodes.forEach((n) => {
-        if (n.id === di.parentId) return;
         const dx = di.x - n.x;
         const dy = di.y - n.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const minDist = NODE_COLLIDE_R + DIM_COLLIDE_R / 2;
+        // 维度与实体的最小距离：实体半径 + 维度半径 + 间距
+        const minDist = ENTITY_R + DIM_R + 8;
         if (dist < minDist) {
-          const push = minDist - dist + 2;
+          const push = minDist - dist + 4;
           di.x += (dx / dist) * push;
           di.y += (dy / dist) * push;
           moved = true;
@@ -703,6 +705,31 @@ const layout = computed<LayoutResult>(() => {
           moved = true;
         }
       });
+    }
+    if (!moved) break;
+  }
+
+  // 实体间碰撞检测：确保实体节点不重叠
+  const ENTITY_MIN_DIST = ENTITY_R * 2 + 24; // 两实体半径 + 最小间距
+  for (let iter = 0; iter < 50; iter++) {
+    let moved = false;
+    for (let i = 0; i < rawNodes.length; i++) {
+      for (let j = i + 1; j < rawNodes.length; j++) {
+        const ni = rawNodes[i], nj = rawNodes[j];
+        const dx = ni.x - nj.x;
+        const dy = ni.y - nj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (dist < ENTITY_MIN_DIST) {
+          const push = (ENTITY_MIN_DIST - dist) / 2 + 2;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          ni.x += nx * push;
+          ni.y += ny * push;
+          nj.x -= nx * push;
+          nj.y -= ny * push;
+          moved = true;
+        }
+      }
     }
     if (!moved) break;
   }
