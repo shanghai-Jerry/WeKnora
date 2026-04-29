@@ -169,7 +169,7 @@ func (s *sessionService) KnowledgeQA(
 		// RAG — dynamically assemble based on feature flags.
 		pipeline = types.NewPipelineBuilder().
 			Add(types.LOAD_HISTORY).
-			Add(types.QUERY_UNDERSTAND).
+			AddIf(chatManage.EnableRewrite, types.QUERY_UNDERSTAND).
 			AddIf(chatManage.EnableQueryIntentExplore, types.QUERY_INTENT_EXPLORE).
 			Add(types.CHUNK_SEARCH_PARALLEL).
 			Add(types.CHUNK_RERANK).

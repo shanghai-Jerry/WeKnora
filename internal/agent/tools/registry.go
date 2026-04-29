@@ -152,7 +152,7 @@ func (r *ToolRegistry) ExecuteTool(
 		}
 		common.PipelineWarn(ctx, "AgentTool", "execute_done", fields)
 	} else {
-		common.PipelineInfo(ctx, "AgentTool", "execute_done", fields)
+		// common.PipelineInfo(ctx, "AgentTool", "execute_done", fields)
 	}
 
 	return result, execErr

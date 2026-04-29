@@ -415,7 +415,7 @@ func (t *KnowledgeSearchTool) Execute(ctx context.Context, args json.RawMessage)
 		logger.Errorf(ctx, "[Tool][KnowledgeSearch] Failed to format output: %v", err)
 		return result, err
 	}
-	logger.Infof(ctx, "[Tool][KnowledgeSearch] Output: %s", result.Output)
+	// logger.Infof(ctx, "[Tool][KnowledgeSearch] Output: %s", result.Output)
 	return result, nil
 }
 

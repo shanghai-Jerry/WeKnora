@@ -167,6 +167,7 @@ func (s *sessionService) applyAgentOverridesToChatManage(
 
 	// Override rewrite settings
 	cm.EnableRewrite = customAgent.Config.EnableRewrite
+	logger.Infof(ctx, "Using custom agent's enable_rewrite: %v", cm.EnableRewrite)
 	cm.EnableQueryExpansion = customAgent.Config.EnableQueryExpansion
 	if customAgent.Config.EnableQueryIntentExplore != nil {
 		cm.EnableQueryIntentExplore = *customAgent.Config.EnableQueryIntentExplore
