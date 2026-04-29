@@ -2,6 +2,7 @@ package chatpipeline
 
 import (
 	"context"
+	"sort"
 
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/event"
@@ -195,6 +196,11 @@ func (p *PluginSearchParallel) OnEvent(ctx context.Context,
 		}
 		return ErrSearchNothing
 	}
+
+	// 按Score排序, searchParallel默认按score倒排序
+	sort.Slice(chatManage.SearchResult, func(i, j int) bool {
+		return chatManage.SearchResult[i].Score > chatManage.SearchResult[j].Score
+	})
 
 	return next()
 }

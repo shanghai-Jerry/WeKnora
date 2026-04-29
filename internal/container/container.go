@@ -76,6 +76,7 @@ import (
 	"github.com/weaviate/weaviate-go-client/v5/weaviate"
 	"github.com/weaviate/weaviate-go-client/v5/weaviate/auth"
 	wgrpc "github.com/weaviate/weaviate-go-client/v5/weaviate/grpc"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 // BuildContainer constructs the dependency injection container
@@ -92,6 +93,11 @@ func BuildContainer(container *dig.Container) *dig.Container {
 
 	// Register resource cleaner for proper cleanup of resources
 	must(container.Provide(NewResourceCleaner, dig.As(new(interfaces.ResourceCleaner))))
+
+	// Register GORM logger adapter (uses internal logger)
+	must(container.Provide(func() gormLogger.Interface {
+		return logger.NewGormLogger(500 * time.Millisecond)
+	}))
 
 	// Core infrastructure configuration
 	logger.Debugf(ctx, "[Container] Registering core infrastructure...")
@@ -347,11 +353,12 @@ func initContextStorage(redisClient *redis.Client) (llmcontext.ContextStorage, e
 // Supports multiple database backends (PostgreSQL)
 // Parameters:
 //   - cfg: Application configuration
+//   - gormLogger: GORM logger adapter (uses internal logger)
 //
 // Returns:
 //   - Configured database connection
 //   - Error if connection fails
-func initDatabase(cfg *config.Config) (*gorm.DB, error) {
+func initDatabase(cfg *config.Config, gormLogger gormLogger.Interface) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 	var migrateDSN string
 	switch os.Getenv("DB_DRIVER") {
@@ -420,6 +427,7 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
+		Logger: gormLogger,
 	})
 	if err != nil {
 		return nil, err

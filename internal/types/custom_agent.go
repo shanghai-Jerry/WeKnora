@@ -177,6 +177,8 @@ type CustomAgentConfig struct {
 	// Whether to enable query intent explore (multi-path vector retrieval)
 	// nil = fall back to global config, false = explicitly disabled, true = explicitly enabled
 	EnableQueryIntentExplore *bool `yaml:"enable_query_intent_explore" json:"enable_query_intent_explore,omitempty"`
+	// Model ID for intent explore (optional, falls back to ChatModelID if empty)
+	IntentExploreModelID string `yaml:"intent_explore_model_id" json:"intent_explore_model_id,omitempty"`
 	// Whether to enable query rewrite for multi-turn conversations
 	EnableRewrite bool `yaml:"enable_rewrite" json:"enable_rewrite"`
 	// Rewrite prompt system message

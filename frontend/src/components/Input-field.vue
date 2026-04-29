@@ -16,6 +16,7 @@ import { getCaretCoordinates } from '@/utils/caret';
 import { listModels, type ModelConfig } from '@/api/model';
 import { listAgents, type CustomAgent, BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from '@/api/agent';
 import { getTenantWebSearchConfig } from '@/api/web-search';
+import { listWebSearchProviders } from '@/api/web-search-provider';
 import { getConversationConfig, updateConversationConfig, type ConversationConfig } from '@/api/system';
 import { useI18n } from 'vue-i18n';
 
@@ -523,9 +524,13 @@ watch(selectedFileIds, () => {
 
 const loadWebSearchConfig = async () => {
   try {
-    const response: any = await getTenantWebSearchConfig();
-    const config = response?.data;
-    const configured = !!(config && config.provider);
+    const [configRes, providersRes]: [any, any] = await Promise.all([
+      getTenantWebSearchConfig(),
+      listWebSearchProviders(),
+    ]);
+    const config = configRes?.data;
+    const providers: any[] = providersRes?.data || [];
+    const configured = !!(config && config.provider) || providers.length > 0;
     isWebSearchConfigured.value = configured;
 
     if (!configured && settingsStore.isWebSearchEnabled) {

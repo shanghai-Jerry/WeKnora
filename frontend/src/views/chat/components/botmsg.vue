@@ -1,9 +1,9 @@
 <template>
     <div class="bot_msg">
         <div style="display: flex;flex-direction: column; gap:8px">
-            <!-- Pipeline Stages Display (non-Agent mode only) - 显示在最上面 -->
+            <!-- Pipeline Stages Display - Agent 模式下有 intentExplore 时也持久展示 -->
             <PipelineStagesDisplay
-                v-if="!session.isAgentMode && session.pipeline_stages"
+                v-if="session.pipeline_stages && (!session.isAgentMode || hasIntentExplore)"
                 :pipeline-stages="session.pipeline_stages"
                 :knowledge-references="session.knowledge_references"
                 :is_completed="session.is_completed"
@@ -156,6 +156,11 @@ customRenderer.code = createMermaidCodeRenderer('mermaid-botmsg');
 // 计算属性：将 Markdown 文本转换为 tokens
 const mentionedItems = computed(() => {
     return props.session?.mentioned_items || [];
+});
+
+const hasIntentExplore = computed(() => {
+    const ie = props.session?.pipeline_stages?.intentExplore;
+    return ie && ie.analysisPaths && ie.analysisPaths.length > 0;
 });
 
 const markdownTokens = computed(() => {

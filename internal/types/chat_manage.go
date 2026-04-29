@@ -33,6 +33,7 @@ type PipelineRequest struct {
 	EnableRewrite            bool   `json:"enable_rewrite"`
 	EnableQueryExpansion     bool   `json:"enable_query_expansion"`
 	EnableQueryIntentExplore bool   `json:"enable_query_intent_explore"`
+	IntentExploreModelID    string `json:"intent_explore_model_id"`
 	RewritePromptSystem      string `json:"rewrite_prompt_system"`
 	RewritePromptUser        string `json:"rewrite_prompt_user"`
 	IntentExplorePromptID    string `json:"intent_explore_prompt_id"`
@@ -193,6 +194,8 @@ func (c *ChatManage) Clone() *ChatManage {
 			FallbackPrompt:           c.FallbackPrompt,
 			EnableRewrite:            c.EnableRewrite,
 			EnableQueryExpansion:     c.EnableQueryExpansion,
+			EnableQueryIntentExplore: c.EnableQueryIntentExplore,
+			IntentExploreModelID:    c.IntentExploreModelID,
 			RewritePromptSystem:      c.RewritePromptSystem,
 			RewritePromptUser:        c.RewritePromptUser,
 			FAQPriorityEnabled:       c.FAQPriorityEnabled,

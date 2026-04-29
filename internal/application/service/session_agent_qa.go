@@ -154,30 +154,25 @@ func (s *sessionService) AgentQA(
 	//     after the first-round call, so it won't affect subsequent rounds.
 	enableIntentExplore := s.cfg.Conversation.EnableQueryIntentExplore
 	if req.CustomAgent.Config.EnableQueryIntentExplore != nil {
+		logger.Infof(ctx, "Custom intent explore enabled: %v", *req.CustomAgent.Config.EnableQueryIntentExplore)
 		enableIntentExplore = *req.CustomAgent.Config.EnableQueryIntentExplore
 	}
+	logger.Infof(ctx, "Intent explore enabled: %v", enableIntentExplore)
 	if enableIntentExplore {
-		// Determine if this is a "new topic" or follow-up question.
-		// Heuristic: if the LLM context (history) has <= 1 messages, treat as new topic.
-		isNewTopic := len(llmContext) <= 1
-		if isNewTopic {
-			intentData := s.executeIntentExplore(ctx, req.Query, summaryModel, eventBus, sessionID)
-			if intentData != nil && len(intentData.FinalSearchQueries) > 0 {
-				agentConfig.IntentExploreSystemBlock = formatIntentExploreSystemBlock(intentData)
-				agentConfig.IntentExploreQueries = intentData.FinalSearchQueries
-				logger.Infof(ctx, "Intent explore completed (new topic): %d paths, %d queries",
-					len(intentData.AnalysisPaths), len(intentData.FinalSearchQueries))
+		intentExploreModel := summaryModel
+		if req.CustomAgent.Config.IntentExploreModelID != "" {
+			m, err := s.modelService.GetChatModel(ctx, req.CustomAgent.Config.IntentExploreModelID)
+			if err != nil {
+				logger.Warnf(ctx, "Failed to get intent explore model %s, falling back to summary model: %v", req.CustomAgent.Config.IntentExploreModelID, err)
+			} else {
+				intentExploreModel = m
 			}
-		} else {
-			logger.Infof(ctx, "Intent explore skipped (follow-up question, history=%d messages)", len(llmContext))
 		}
-	}
-	if enableIntentExplore {
-		intentData := s.executeIntentExplore(ctx, req.Query, summaryModel, eventBus, sessionID)
+		intentData := s.executeIntentExplore(ctx, req.Query, intentExploreModel, eventBus, sessionID)
 		if intentData != nil && len(intentData.FinalSearchQueries) > 0 {
 			agentConfig.IntentExploreSystemBlock = formatIntentExploreSystemBlock(intentData)
 			agentConfig.IntentExploreQueries = intentData.FinalSearchQueries
-			logger.Infof(ctx, "Intent explore completed: %d paths, %d search queries",
+			logger.Infof(ctx, "Intent explore completed (): %d paths, %d queries",
 				len(intentData.AnalysisPaths), len(intentData.FinalSearchQueries))
 		}
 	}

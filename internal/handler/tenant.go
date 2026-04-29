@@ -756,9 +756,13 @@ func (h *TenantHandler) GetTenantWebSearchConfig(c *gin.Context) {
 	}
 
 	logger.Infof(ctx, "Tenant web search config retrieved successfully, Tenant ID: %d", tenant.ID)
+	data := tenant.WebSearchConfig
+	if data == nil {
+		data = &types.WebSearchConfig{}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    tenant.WebSearchConfig,
+		"data":    data,
 	})
 }
 

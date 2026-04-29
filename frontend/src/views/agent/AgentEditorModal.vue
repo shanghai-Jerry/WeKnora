@@ -1000,14 +1000,32 @@
                       </div>
                     </div>
 
-                    <!-- 多路向量检索（仅普通模式） -->
-                    <div v-if="!isAgentMode" class="setting-row">
+                    <!-- 查询意图探索 -->
+                    <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.enableQueryIntentExplore') }}</label>
                         <p class="desc">{{ $t('agentEditor.desc.queryIntentExplore') }}</p>
                       </div>
                       <div class="setting-control">
                         <t-switch v-model="formData.config.enable_query_intent_explore" />
+                      </div>
+                    </div>
+
+                    <!-- 意图探索模型（意图探索启用时） -->
+                    <div v-if="formData.config.enable_query_intent_explore" class="setting-row">
+                      <div class="setting-info">
+                        <label>{{ $t('agent.editor.intentExploreModel') }}</label>
+                        <p class="desc">{{ $t('agentEditor.desc.intentExploreModel') }}</p>
+                      </div>
+                      <div class="setting-control">
+                        <ModelSelector
+                          model-type="KnowledgeQA"
+                          :selected-model-id="formData.config.intent_explore_model_id"
+                          :all-models="allModels"
+                          @update:selected-model-id="(val: string) => formData.config.intent_explore_model_id = val"
+                          @add-model="handleAddModel('llm')"
+                          :placeholder="$t('agent.editor.intentExploreModelPlaceholder')"
+                        />
                       </div>
                     </div>
 
@@ -1529,6 +1547,7 @@ const defaultFormData = {
     // 高级设置（普通模式）
     enable_query_expansion: true,
     enable_query_intent_explore: false,
+    intent_explore_model_id: '',
     enable_rewrite: true,
     rewrite_prompt_system: '',
     rewrite_prompt_user: '',

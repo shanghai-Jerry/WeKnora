@@ -95,7 +95,11 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 		"rewrite_query": chatManage.RewriteQuery,
 	})
 
-	model, err := p.modelService.GetChatModel(ctx, chatManage.ChatModelID)
+	modelID := chatManage.ChatModelID
+	if chatManage.IntentExploreModelID != "" {
+		modelID = chatManage.IntentExploreModelID
+	}
+	model, err := p.modelService.GetChatModel(ctx, modelID)
 	if err != nil {
 		pipelineError(ctx, "QueryIntentExplore", "get_model", map[string]interface{}{
 			"session_id": chatManage.SessionID,

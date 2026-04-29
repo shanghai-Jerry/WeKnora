@@ -257,7 +257,7 @@ func (p *PluginRerank) rerank(ctx context.Context,
 	logged := min(2, len(rerankResp))
 	for i := range logged {
 		if rerankResp[i].Index < len(candidates) {
-			pipelineDebug(ctx, "Rerank", "top_score", map[string]interface{}{
+			pipelineInfo(ctx, "Rerank", "top_score", map[string]interface{}{
 				"rank":        i + 1,
 				"score":       rerankResp[i].RelevanceScore,
 				"chunk_id":    candidates[rerankResp[i].Index].ID,

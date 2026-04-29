@@ -173,6 +173,10 @@ func (s *sessionService) applyAgentOverridesToChatManage(
 		cm.EnableQueryIntentExplore = *customAgent.Config.EnableQueryIntentExplore
 		logger.Infof(ctx, "Using custom agent's enable_query_intent_explore: %v", *customAgent.Config.EnableQueryIntentExplore)
 	}
+	if customAgent.Config.IntentExploreModelID != "" {
+		cm.IntentExploreModelID = customAgent.Config.IntentExploreModelID
+		logger.Infof(ctx, "Using custom agent's intent_explore_model_id: %s", customAgent.Config.IntentExploreModelID)
+	}
 	if customAgent.Config.RewritePromptSystem != "" {
 		cm.RewritePromptSystem = customAgent.Config.RewritePromptSystem
 	}

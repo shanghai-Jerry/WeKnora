@@ -1258,6 +1258,8 @@ HTTP Request
 
 #### 需修改的文件清单
 
+**后端：**
+
 | 文件 | 改动说明 |
 |------|---------|
 | `internal/types/agent.go` | `AgentConfig` 新增 `IntentExploreSystemBlock`、`IntentExploreContext` 运行时字段 |
@@ -1266,10 +1268,18 @@ HTTP Request
 | `internal/application/service/session_agent_qa.go` | 新增 `executeIntentExplore()`、`formatIntentExploreSystemBlock()`、`formatIntentExploreContext()` 方法，在 `AgentQA()` 中调用 |
 | `internal/application/service/chat_pipeline/query_intent_explore.go` | 提取 `parseOutput()` 和搜索逻辑为可导出函数，供 `session_agent_qa.go` 复用 |
 
+**前端（AgentQA 模式下持久展示 intentExplore）：**
+
+| 文件 | 改动说明 |
+|------|---------|
+| `frontend/src/views/chat/index.vue` | 在 `handleStreamData` 中新增 `query_intent_explore` 事件处理（双模式），并移除旧 pipeline stages 块中的 `query_intent_explore` 分支；`handleAgentChunk` 新建消息时初始化 `pipeline_stages: {}` |
+| `frontend/src/views/chat/components/botmsg.vue` | 修改 `PipelineStagesDisplay` 的 `v-if` 条件，从 `!session.isAgentMode` 改为 `(!session.isAgentMode \|\| hasIntentExplore)`；新增 `hasIntentExplore` 计算属性 |
+| `frontend/src/views/chat/components/PipelineStagesDisplay.vue` | 无需改动（已有 `intentExplore` 展示逻辑，只需在 Agent 模式下也能挂载即可） |
+
 无需改动的文件：
 - `internal/types/custom_agent.go`：`EnableQueryIntentExplore` 字段已存在
 - `internal/handler/session/agent_stream_handler.go`：已订阅并处理 `EventQueryIntentExplore`
-- 前端代码：开关和展示逻辑已存在
+- `frontend/src/views/chat/components/AgentStreamDisplay.vue`：无需改动（`intentExplore` 由 `PipelineStagesDisplay` 统一展示，不纳入 ReAct 事件流）
 
 ---
 
