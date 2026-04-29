@@ -97,6 +97,36 @@ func (s *sessionService) AgentQA(
 	var rerankModel rerank.Reranker
 	hasKnowledge := len(agentConfig.KnowledgeBases) > 0 || len(agentConfig.KnowledgeIDs) > 0
 	if hasKnowledge {
+		// Execute intent explore before creating the engine if enabled.
+		// Rules:
+		//   - Only execute for "new topics" (no or minimal history context).
+		//   - For follow-up questions, skip to avoid misleading the agent.
+		//   - Once IntentExploreQueries is set, it's consumed and cleared by KnowledgeSearchTool
+		//     after the first-round call, so it won't affect subsequent rounds.
+		enableIntentExplore := s.cfg.Conversation.EnableQueryIntentExplore
+		if req.CustomAgent.Config.EnableQueryIntentExplore != nil {
+			logger.Infof(ctx, "Custom intent explore enabled: %v", *req.CustomAgent.Config.EnableQueryIntentExplore)
+			enableIntentExplore = *req.CustomAgent.Config.EnableQueryIntentExplore
+		}
+		logger.Infof(ctx, "Intent explore enabled: %v", enableIntentExplore)
+		if enableIntentExplore {
+			intentExploreModel := summaryModel
+			if req.CustomAgent.Config.IntentExploreModelID != "" {
+				m, err := s.modelService.GetChatModel(ctx, req.CustomAgent.Config.IntentExploreModelID)
+				if err != nil {
+					logger.Warnf(ctx, "Failed to get intent explore model %s, falling back to summary model: %v", req.CustomAgent.Config.IntentExploreModelID, err)
+				} else {
+					intentExploreModel = m
+				}
+			}
+			intentData := s.executeIntentExplore(ctx, req.Query, intentExploreModel, eventBus, sessionID)
+			if intentData != nil && len(intentData.FinalSearchQueries) > 0 {
+				agentConfig.IntentExploreSystemBlock = formatIntentExploreSystemBlock(intentData)
+				agentConfig.IntentExploreQueries = intentData.FinalSearchQueries
+				logger.Infof(ctx, "Intent explore completed (): %d paths, %d queries",
+					len(intentData.AnalysisPaths), len(intentData.FinalSearchQueries))
+			}
+		}
 		rerankModelID := req.CustomAgent.Config.RerankModelID
 		if rerankModelID == "" {
 			logger.Warnf(ctx, "No rerank model configured for custom agent %s, but knowledge bases are specified", req.CustomAgent.ID)
@@ -145,37 +175,6 @@ func (s *sessionService) AgentQA(
 
 	// Create agent engine with EventBus and ContextManager
 	logger.Info(ctx, "Creating agent engine")
-
-	// Execute intent explore before creating the engine if enabled.
-	// Rules:
-	//   - Only execute for "new topics" (no or minimal history context).
-	//   - For follow-up questions, skip to avoid misleading the agent.
-	//   - Once IntentExploreQueries is set, it's consumed and cleared by KnowledgeSearchTool
-	//     after the first-round call, so it won't affect subsequent rounds.
-	enableIntentExplore := s.cfg.Conversation.EnableQueryIntentExplore
-	if req.CustomAgent.Config.EnableQueryIntentExplore != nil {
-		logger.Infof(ctx, "Custom intent explore enabled: %v", *req.CustomAgent.Config.EnableQueryIntentExplore)
-		enableIntentExplore = *req.CustomAgent.Config.EnableQueryIntentExplore
-	}
-	logger.Infof(ctx, "Intent explore enabled: %v", enableIntentExplore)
-	if enableIntentExplore {
-		intentExploreModel := summaryModel
-		if req.CustomAgent.Config.IntentExploreModelID != "" {
-			m, err := s.modelService.GetChatModel(ctx, req.CustomAgent.Config.IntentExploreModelID)
-			if err != nil {
-				logger.Warnf(ctx, "Failed to get intent explore model %s, falling back to summary model: %v", req.CustomAgent.Config.IntentExploreModelID, err)
-			} else {
-				intentExploreModel = m
-			}
-		}
-		intentData := s.executeIntentExplore(ctx, req.Query, intentExploreModel, eventBus, sessionID)
-		if intentData != nil && len(intentData.FinalSearchQueries) > 0 {
-			agentConfig.IntentExploreSystemBlock = formatIntentExploreSystemBlock(intentData)
-			agentConfig.IntentExploreQueries = intentData.FinalSearchQueries
-			logger.Infof(ctx, "Intent explore completed (): %d paths, %d queries",
-				len(intentData.AnalysisPaths), len(intentData.FinalSearchQueries))
-		}
-	}
 
 	engine, err := s.agentService.CreateAgentEngine(
 		ctx,

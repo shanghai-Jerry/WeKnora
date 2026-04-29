@@ -170,7 +170,7 @@ func (s *sessionService) KnowledgeQA(
 		pipeline = types.NewPipelineBuilder().
 			Add(types.LOAD_HISTORY).
 			AddIf(chatManage.EnableRewrite, types.QUERY_UNDERSTAND).
-			AddIf(chatManage.EnableQueryIntentExplore, types.QUERY_INTENT_EXPLORE).
+			AddIf(hasKB && chatManage.EnableQueryIntentExplore, types.QUERY_INTENT_EXPLORE).
 			Add(types.CHUNK_SEARCH_PARALLEL).
 			Add(types.CHUNK_RERANK).
 			AddIf(req.WebSearchEnabled, types.WEB_FETCH).

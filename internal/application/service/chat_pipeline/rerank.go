@@ -237,7 +237,7 @@ func (p *PluginRerank) rerank(ctx context.Context,
 	passages = cleanPassages
 	candidates = cleanCandidates
 	rerankResp := make([]rerank.RankResult, 0)
-	for chunkGroup := range slices.Chunk(passages, 20) {
+	for chunkGroup := range slices.Chunk(passages, 50) {
 		logger.Debugf(ctx, "Rerank chunkGroup: %v", chunkGroup)
 		rerankBatchResps, err := rerankModel.Rerank(ctx, query, chunkGroup)
 		if err != nil {
