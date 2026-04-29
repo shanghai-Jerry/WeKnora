@@ -154,6 +154,9 @@ func (e *AgentEngine) executeToolCallsParallel(
 				Duration:   toolCall.Duration,
 			},
 		})
+
+		// 发射引用事件（如果工具返回了搜索结果）
+		e.emitReferencesIfNeeded(ctx, result, toolCall.ID, sessionID)
 	}
 }
 
@@ -200,6 +203,9 @@ func (e *AgentEngine) executeSingleToolCall(
 			Duration:   toolCall.Duration,
 		},
 	})
+
+	// 发射引用事件（如果工具返回了搜索结果）
+	e.emitReferencesIfNeeded(ctx, result, toolCall.ID, sessionID)
 }
 
 // runToolCall handles argument parsing, execution, logging, and pipeline events for a single tool call.
@@ -327,4 +333,33 @@ func (e *AgentEngine) runToolCall(
 	}
 
 	return toolCall
+}
+
+// emitReferencesIfNeeded 检查工具结果中是否包含搜索结果，如果有则发射 EventAgentReferences 事件
+func (e *AgentEngine) emitReferencesIfNeeded(ctx context.Context, result *types.ToolResult, toolCallID, sessionID string) {
+	if result == nil || result.Data == nil {
+		return
+	}
+
+	// result.Data 已经是 map[string]interface{} 类型，直接使用
+	rawResults, ok := result.Data["raw_results"]
+	if !ok {
+		return
+	}
+
+	searchResults, ok := rawResults.([]*types.SearchResult)
+	if !ok || len(searchResults) == 0 {
+		return
+	}
+
+	e.eventBus.Emit(ctx, event.Event{
+		ID:        toolCallID + "-references",
+		Type:      event.EventAgentReferences,
+		SessionID: sessionID,
+		Data: event.AgentReferencesData{
+			References: searchResults,
+		},
+	})
+
+	logger.Debugf(ctx, "[Agent] Emitted EventAgentReferences with %d results", len(searchResults))
 }

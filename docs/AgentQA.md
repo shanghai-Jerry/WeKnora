@@ -1273,13 +1273,122 @@ HTTP Request
 | 文件 | 改动说明 |
 |------|---------|
 | `frontend/src/views/chat/index.vue` | 在 `handleStreamData` 中新增 `query_intent_explore` 事件处理（双模式），并移除旧 pipeline stages 块中的 `query_intent_explore` 分支；`handleAgentChunk` 新建消息时初始化 `pipeline_stages: {}` |
-| `frontend/src/views/chat/components/botmsg.vue` | 修改 `PipelineStagesDisplay` 的 `v-if` 条件，从 `!session.isAgentMode` 改为 `(!session.isAgentMode \|\| hasIntentExplore)`；新增 `hasIntentExplore` 计算属性 |
+| `frontend/src/views/chat/components/botmsg.vue` | 修改 `PipelineStagesDisplay` 的 `v-if` 条件，从 `!session.isAgentMode` 改为 `(!session.isAgentMode || hasIntentExplore)`；新增 `hasIntentExplore` 计算属性 |
 | `frontend/src/views/chat/components/PipelineStagesDisplay.vue` | 无需改动（已有 `intentExplore` 展示逻辑，只需在 Agent 模式下也能挂载即可） |
 
 无需改动的文件：
 - `internal/types/custom_agent.go`：`EnableQueryIntentExplore` 字段已存在
 - `internal/handler/session/agent_stream_handler.go`：已订阅并处理 `EventQueryIntentExplore`
 - `frontend/src/views/chat/components/AgentStreamDisplay.vue`：无需改动（`intentExplore` 由 `PipelineStagesDisplay` 统一展示，不纳入 ReAct 事件流）
+
+---
+
+## AgentQA 模式下 knowledge_search 工具缺少引用事件的问题
+
+### 问题描述
+
+在 AgentQA 模式下，前端页面展示已检索文档时，一直显示"检索中"，无法正确展示检索结果。问题根因是：
+
+**KnowledgeQA 模式**（流水线模式）：
+- 在 `internal/application/service/session_knowledge_qa.go:204` 中发射 `EventAgentReferences` 事件
+- 前端 `handleReferences` 处理器能正确接收并展示引用
+
+**AgentQA 模式**（ReAct 循环模式）：
+- `knowledge_search` 工具执行后（`internal/agent/act.go`）
+- 只发射了 `EventAgentToolResult` 和 `EventAgentTool` 事件
+- **缺少 `EventAgentReferences` 事件发射**
+- 导致前端 `handleReferences` 未被触发，引用列表为空，一直显示"检索中"
+
+### 解决方案
+
+需要在 AgentQA 模式的工具执行流程中添加 `EventAgentReferences` 事件发射：
+
+#### 修改文件 1：`internal/agent/tools/knowledge_search.go`
+
+在 `Execute` 方法中，调用 `formatOutput` 生成结果后，将原始搜索结果（`*types.SearchResult` 数组）附加到 `ToolResult.Data` 中，以便后续事件发射使用。
+
+**改动位置**：在 `formatOutput` 调用之后，`return result, nil` 之前（约第 413-418 行）
+
+**添加代码**：
+```go
+// 将原始搜索结果附加到 Data 中，用于发射 EventAgentReferences
+var rawResults []*types.SearchResult
+for _, r := range deduplicatedResults {
+    rawResults = append(rawResults, r.SearchResult)
+}
+if result.Data != nil {
+    if dataMap, ok := result.Data.(map[string]interface{}); ok {
+        dataMap["raw_results"] = rawResults
+    }
+}
+```
+
+#### 修改文件 2：`internal/agent/act.go`
+
+添加辅助函数 `emitReferencesIfNeeded`，并在工具执行后调用。
+
+**添加辅助函数**（在文件末尾或合适位置）：
+```go
+// emitReferencesIfNeeded 检查工具结果中是否包含搜索结果，如果有则发射 EventAgentReferences 事件
+func (e *AgentEngine) emitReferencesIfNeeded(ctx context.Context, result *types.ToolResult, toolCallID, sessionID string) {
+    if result == nil || result.Data == nil {
+        return
+    }
+    
+    dataMap, ok := result.Data.(map[string]interface{})
+    if !ok {
+        return
+    }
+    
+    rawResults, ok := dataMap["raw_results"]
+    if !ok {
+        return
+    }
+    
+    searchResults, ok := rawResults.([]*types.SearchResult)
+    if !ok || len(searchResults) == 0 {
+        return
+    }
+    
+    e.eventBus.Emit(ctx, event.Event{
+        ID:        toolCallID + "-references",
+        Type:      event.EventAgentReferences,
+        SessionID: sessionID,
+        Data: event.AgentReferencesData{
+            References: searchResults,
+        },
+    })
+    
+    logger.Debugf(ctx, "[Agent] Emitted EventAgentReferences with %d results", len(searchResults))
+}
+```
+
+**修改 `executeSingleToolCall` 函数**（约第 160-203 行）：
+在发射 `EventAgentToolResult` 和 `EventAgentTool` 事件之后，添加：
+```go
+// 发射引用事件（如果工具返回了搜索结果）
+e.emitReferencesIfNeeded(ctx, result, toolCall.ID, sessionID)
+```
+
+**修改 `executeToolCallsParallel` 函数**（约第 91-158 行）：
+在结果处理循环中，发射完 `EventAgentToolResult` 和 `EventAgentTool` 之后，添加：
+```go
+// 发射引用事件（如果工具返回了搜索结果）
+e.emitReferencesIfNeeded(ctx, result, toolCall.ID, sessionID)
+```
+
+### 验证方式
+
+1. 启动后端服务（`make dev-app`）
+2. 在 AgentQA 模式下发送包含知识库检索的查询
+3. 观察 SSE 流中是否包含 `references` 事件
+4. 前端应正确展示检索到的文档列表，不再显示"检索中"
+
+### 影响范围
+
+- **后端**：仅修改 `knowledge_search.go` 和 `act.go` 两个文件
+- **前端**：无需修改（已有 `handleReferences` 处理逻辑）
+- **兼容性**：不影响 KnowledgeQA 模式的现有逻辑（两个模式独立运行）
 
 ---
 

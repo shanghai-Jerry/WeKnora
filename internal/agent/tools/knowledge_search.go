@@ -415,6 +415,18 @@ func (t *KnowledgeSearchTool) Execute(ctx context.Context, args json.RawMessage)
 		logger.Errorf(ctx, "[Tool][KnowledgeSearch] Failed to format output: %v", err)
 		return result, err
 	}
+
+	// 将原始搜索结果附加到 Data 中，用于发射 EventAgentReferences
+	var rawResults []*types.SearchResult
+	for _, r := range deduplicatedResults {
+		rawResults = append(rawResults, r.SearchResult)
+	}
+	if result.Data == nil {
+		result.Data = make(map[string]interface{})
+	}
+	// result.Data 已经是 map[string]interface{} 类型，直接赋值
+	result.Data["raw_results"] = rawResults
+
 	// logger.Infof(ctx, "[Tool][KnowledgeSearch] Output: %s", result.Output)
 	return result, nil
 }
