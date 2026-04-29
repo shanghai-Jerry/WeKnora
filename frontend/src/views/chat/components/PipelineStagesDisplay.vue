@@ -611,13 +611,16 @@ const layout = computed<LayoutResult>(() => {
     return true;
   };
 
-  const entityEdgeSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const entityEdgeSegments: { x1: number; y1: number; x2: number; y2: number; midX: number; midY: number }[] = [];
   intentExplore.value?.analysisPaths.forEach((path) => {
     if (!path.source_entity || !path.target_entity) return;
     const s = rawNodes.find((n) => n.id === path.source_entity);
     const t = rawNodes.find((n) => n.id === path.target_entity);
     if (!s || !t) return;
-    entityEdgeSegments.push({ x1: s.x, y1: s.y, x2: t.x, y2: t.y });
+    entityEdgeSegments.push({
+      x1: s.x, y1: s.y, x2: t.x, y2: t.y,
+      midX: (s.x + t.x) / 2, midY: (s.y + t.y) / 2
+    });
   });
 
   for (let iter = 0; iter < 30; iter++) {
@@ -625,6 +628,7 @@ const layout = computed<LayoutResult>(() => {
     for (let i = 0; i < rawDims.length; i++) {
       const di = rawDims[i];
       const textWi = Math.max(28, di.label.length * 13 + 10);
+      const dimTextH = 18; // 维度标签高度
 
       for (let j = i + 1; j < rawDims.length; j++) {
         const dj = rawDims[j];
@@ -644,6 +648,42 @@ const layout = computed<LayoutResult>(() => {
           moved = true;
         }
       }
+
+      // 维度与关系连线文字标签的碰撞检测
+      entityEdgeSegments.forEach((seg) => {
+        // 关系连线标签的估计宽度（根据interaction_type长度）
+        const edgeLabelW = 60; // 估计标签宽度
+        const edgeLabelH = 14; // 估计标签高度
+        const minDistX = (textWi + edgeLabelW) / 2 + 6;
+        const minDistY = (dimTextH + edgeLabelH) / 2 + 4;
+        const dx = di.x - seg.midX;
+        const dy = di.y - seg.midY;
+        // 椭圆形碰撞检测
+        const normalizedDist = Math.sqrt((dx / minDistX) ** 2 + (dy / minDistY) ** 2);
+        if (normalizedDist < 1) {
+          const push = (1 - normalizedDist) * Math.max(minDistX, minDistY) + 4;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          di.x += (dx / dist) * push;
+          di.y += (dy / dist) * push;
+          moved = true;
+        }
+
+        // 维度与关系连线本身的碰撞检测
+        const lineClearance = dimTextH / 2 + 6;
+        const distToLine = pointToSegmentDist(di.x, di.y, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (distToLine < lineClearance) {
+          const push = lineClearance - distToLine + 4;
+          const abx = seg.x2 - seg.x1, aby = seg.y2 - seg.y1;
+          const abLen = Math.sqrt(abx * abx + aby * aby) || 1;
+          const perpX = -aby / abLen;
+          const perpY = abx / abLen;
+          const side = (di.x - seg.x1) * aby - (di.y - seg.y1) * abx;
+          const dir = side >= 0 ? 1 : -1;
+          di.x += perpX * push * dir;
+          di.y += perpY * push * dir;
+          moved = true;
+        }
+      });
 
       // 维度与所有实体的碰撞检测（包括父实体，确保维度不落在实体圆内）
       rawNodes.forEach((n) => {
