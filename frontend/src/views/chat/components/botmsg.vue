@@ -1,9 +1,9 @@
 <template>
     <div class="bot_msg">
         <div style="display: flex;flex-direction: column; gap:8px">
-            <!-- Pipeline Stages Display - Agent 模式下有 intentExplore 时也持久展示 -->
+            <!-- Pipeline Stages Display - 有 pipeline_stages 时显示（包括等待状态） -->
             <PipelineStagesDisplay
-                v-if="session.pipeline_stages && (!session.isAgentMode || hasIntentExplore)"
+                v-if="session.pipeline_stages && (!session.isAgentMode || hasIntentExplore || hasDomainCheck || isWaitingForPipeline)"
                 :pipeline-stages="session.pipeline_stages"
                 :knowledge-references="session.knowledge_references"
                 :is_completed="session.is_completed"
@@ -161,6 +161,17 @@ const mentionedItems = computed(() => {
 const hasIntentExplore = computed(() => {
     const ie = props.session?.pipeline_stages?.intentExplore;
     return ie && ie.analysisPaths && ie.analysisPaths.length > 0;
+});
+
+const hasDomainCheck = computed(() => {
+    return props.session?.pipeline_stages?.domainCheck !== undefined;
+});
+
+const isWaitingForPipeline = computed(() => {
+    const stages = props.session?.pipeline_stages;
+    if (!stages) return false;
+    // 如果 pipeline_stages 是空对象且会话未完成，则显示等待状态
+    return Object.keys(stages).length === 0 && !props.session?.is_completed;
 });
 
 const markdownTokens = computed(() => {

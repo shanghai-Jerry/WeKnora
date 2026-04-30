@@ -1,5 +1,48 @@
 <template>
-  <div v-if="hasStages" class="pipeline-stages">
+  <div v-if="hasStages" class="pipeline-container">
+    <!-- 等待第一个SSE事件的标识 -->
+    <div v-if="isWaitingForFirstSSE" class="waiting-block">
+      <div class="waiting-header">
+        <div class="waiting-icon">
+          <div class="waiting-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="waiting-text">正在准备检索...</div>
+      </div>
+    </div>
+
+    <!-- Domain Check: 领域检查 (独立展示，放在循证检索框外面) -->
+    <div v-if="hasDomainCheck" class="domain-check-block">
+      <div class="domain-check-header">
+        <div class="domain-check-icon" :class="domainCheckStatus">
+          <svg v-if="domainCheck?.isOphthalmology" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm3 10.5a.75.75 0 0 0 0-1.5H9a.75.75 0 0 0 0 1.5h6Z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="domain-check-title">
+          {{ domainCheck?.isOphthalmology ? $t('pipeline.domainCheck.ophthalmology') : $t('pipeline.domainCheck.nonOphthalmology') }}
+        </div>
+        <div v-if="domainCheck?.skippedIntent" class="domain-check-badge">
+          {{ $t('pipeline.domainCheck.skippedIntentExplore') }}
+        </div>
+      </div>
+      <div class="domain-check-reason">{{ domainCheck?.reason }}</div>
+    </div>
+
+    <!-- 等待 query_intent_explore 的标识 -->
+    <div v-if="isWaitingForIntentExplore" class="waiting-intent-block">
+      <div class="loading-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="waiting-text">正在分析问题意图...</span>
+    </div>
+
+    <!-- 循证检索框 -->
+    <div v-if="hasIntentExplore || hasLegacyStages" class="pipeline-stages">
     <!-- Header -->
     <div class="stages-header" @click="toggleExpanded">
       <div class="stages-title">
@@ -14,29 +57,6 @@
     <!-- Content: 时间轴 -->
     <div v-show="expanded" class="stages-content">
       <div class="timeline-track"></div>
-
-      <!-- Step 0: 领域检查 -->
-      <div v-if="hasDomainCheck" class="stage-item domain-check-step">
-        <div class="timeline-dot" :class="domainCheckStatus">
-          <svg v-if="domainCheck?.isOphthalmology" viewBox="0 0 24 24" fill="currentColor" class="check-icon">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="currentColor" class="skip-icon">
-            <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm3 10.5a.75.75 0 0 0 0-1.5H9a.75.75 0 0 0 0 1.5h6Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="stage-label">
-          {{ domainCheck?.isOphthalmology ? $t('pipeline.domainCheck.ophthalmology') : $t('pipeline.domainCheck.nonOphthalmology') }}
-        </div>
-        <div class="stage-body">
-          <div class="domain-check-info">
-            <span class="domain-reason">{{ domainCheck?.reason }}</span>
-            <span v-if="domainCheck?.skippedIntent" class="domain-skipped">
-              {{ $t('pipeline.domainCheck.skippedIntentExplore') }}
-            </span>
-          </div>
-        </div>
-      </div>
 
       <!-- Step 1: 已理解问题并定位研究方向 -->
       <div v-if="hasIntentExplore" class="stage-item evidence-step">
@@ -264,6 +284,7 @@
       </template>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -421,15 +442,30 @@ const referenceSources = computed(() => {
 });
 const sourceColors = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899'];
 
-const hasStages = computed(() => {
+const hasLegacyStages = computed(() => {
   return (
     props.pipelineStages?.queryRewritten ||
     props.pipelineStages?.retrievalQuery ||
     props.pipelineStages?.vectorQuery ||
     props.pipelineStages?.keywordQuery ||
-    (props.pipelineStages?.expansions && props.pipelineStages.expansions.length > 0) ||
-    hasIntentExplore.value
+    (props.pipelineStages?.expansions && props.pipelineStages.expansions.length > 0)
   );
+});
+
+const isWaitingForFirstSSE = computed(() => {
+  const stages = props.pipelineStages;
+  if (!stages) return false;
+  // 如果 pipeline_stages 是空对象且会话未完成，则显示等待状态
+  return Object.keys(stages).length === 0 && !props.is_completed;
+});
+
+const isWaitingForIntentExplore = computed(() => {
+  // 已收到 domain_check 但还未收到 query_intent_explore，且会话未完成
+  return hasDomainCheck.value && !hasIntentExplore.value && !props.is_completed;
+});
+
+const hasStages = computed(() => {
+  return hasDomainCheck.value || hasIntentExplore.value || hasLegacyStages.value || isWaitingForFirstSSE.value;
 });
 
 const toggleExpanded = () => { expanded.value = !expanded.value; };
@@ -938,8 +974,98 @@ const truncateContent = (content: string) => {
 </script>
 
 <style lang="less" scoped>
+.pipeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ===== 等待状态标识 ===== */
+.waiting-block {
+  background: var(--td-bg-color-container);
+  border-radius: 12px;
+  border: 1px solid var(--td-component-stroke);
+  padding: 14px 16px;
+  
+  .waiting-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .waiting-icon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .waiting-dots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--td-brand-color);
+      animation: waitingBounce 1.4s ease-in-out infinite;
+      
+      &:nth-child(1) { animation-delay: 0s; }
+      &:nth-child(2) { animation-delay: 0.2s; }
+      &:nth-child(3) { animation-delay: 0.4s; }
+    }
+  }
+  
+  .waiting-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--td-text-color-secondary);
+  }
+}
+
+@keyframes waitingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+
+/* ===== 等待意图探索标识 ===== */
+.waiting-intent-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--td-bg-color-container);
+  border-radius: 12px;
+  border: 1px solid var(--td-component-stroke);
+  
+  .loading-dots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--td-brand-color);
+      animation: waitingBounce 1.4s ease-in-out infinite;
+      
+      &:nth-child(1) { animation-delay: 0s; }
+      &:nth-child(2) { animation-delay: 0.2s; }
+      &:nth-child(3) { animation-delay: 0.4s; }
+    }
+  }
+  
+  .waiting-text {
+    font-size: 13px;
+    color: var(--td-text-color-secondary);
+  }
+}
+
 .pipeline-stages {
-  margin-top: 16px;
   border: 1px solid var(--td-component-stroke);
   border-radius: 12px;
   background: var(--td-bg-color-container);
@@ -1016,16 +1142,6 @@ const truncateContent = (content: string) => {
       background: #22c55e;
       .check-icon { width: 14px; height: 14px; color: white; }
     }
-    &.ophthalmology {
-      border-color: #22c55e;
-      background: #22c55e;
-      .check-icon { width: 14px; height: 14px; color: white; }
-    }
-    &.non-ophthalmology {
-      border-color: #f59e0b;
-      background: #f59e0b;
-      .skip-icon { width: 14px; height: 14px; color: white; }
-    }
     .dot-inner { width: 8px; height: 8px; border-radius: 50%; background: var(--td-component-stroke); }
   }
   .stage-label {
@@ -1053,26 +1169,68 @@ const truncateContent = (content: string) => {
   padding: 20px;
 }
 
-.domain-check-step .stage-body {
+/* ===== Domain Check Block (独立展示块) ===== */
+.domain-check-block {
   background: var(--td-bg-color-secondarycontainer);
   border-radius: 12px;
   border: 1px solid var(--td-component-stroke);
-  padding: 12px 16px;
-}
-
-.domain-check-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  .domain-reason {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  
+  .domain-check-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  
+  .domain-check-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+    
+    &.ophthalmology {
+      background: #22c55e;
+      color: white;
+    }
+    
+    &.non-ophthalmology {
+      background: #f59e0b;
+      color: white;
+    }
+  }
+  
+  .domain-check-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--td-text-color-primary);
+  }
+  
+  .domain-check-badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin-left: auto;
+  }
+  
+  .domain-check-reason {
     font-size: 13px;
     color: var(--td-text-color-secondary);
     line-height: 1.5;
-  }
-  .domain-skipped {
-    font-size: 12px;
-    color: #f59e0b;
-    font-weight: 500;
+    padding-left: 32px;
   }
 }
 
