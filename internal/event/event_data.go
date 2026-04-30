@@ -267,3 +267,10 @@ type QueryIntentExploreData struct {
 	FinalSearchQueries []string        `json:"final_search_queries"`
 	TotalSearchCount   int             `json:"total_search_count"`
 }
+
+// DomainCheckData represents domain relevance check result
+type DomainCheckData struct {
+	IsOphthalmology bool   `json:"is_ophthalmology"`
+	Reason          string `json:"reason"`
+	SkippedIntent   bool   `json:"skipped_intent"`
+}

@@ -77,6 +77,7 @@ func (h *AgentStreamHandler) Subscribe() {
 	h.eventBus.On(event.EventRetrievalVectorQ, h.handleVectorQuery)
 	h.eventBus.On(event.EventRetrievalKeywordQ, h.handleKeywordQuery)
 	h.eventBus.On(event.EventQueryIntentExplore, h.handleQueryIntentExplore)
+	h.eventBus.On(event.EventDomainCheck, h.handleDomainCheck)
 }
 
 // handleThought handles agent thought events
@@ -747,6 +748,41 @@ func (h *AgentStreamHandler) handleQueryIntentExplore(ctx context.Context, evt e
 			"analysisPaths":      pathsData,
 			"finalSearchQueries": data.FinalSearchQueries,
 			"totalSearchCount":   data.TotalSearchCount,
+		},
+	})
+
+	return nil
+}
+
+// handleDomainCheck handles domain check events for KnowledgeQA pipeline stages
+func (h *AgentStreamHandler) handleDomainCheck(ctx context.Context, evt event.Event) error {
+	data, ok := evt.Data.(event.DomainCheckData)
+	if !ok {
+		return nil
+	}
+
+	// Append domain_check event to stream
+	if err := h.streamManager.AppendEvent(h.ctx, h.sessionID, h.assistantMessageID, interfaces.StreamEvent{
+		ID:        evt.ID,
+		Type:      types.ResponseTypeDomainCheck,
+		Content:   "",
+		Done:      true,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"is_ophthalmology": data.IsOphthalmology,
+			"reason":           data.Reason,
+			"skipped_intent":   data.SkippedIntent,
+		},
+	}); err != nil {
+		logger.GetLogger(h.ctx).Error("Append domain_check event to stream failed", "error", err)
+	}
+
+	// Real-time update: save domain_check data to message
+	h.updateMessagePipelineStages(map[string]interface{}{
+		"domainCheck": map[string]interface{}{
+			"isOphthalmology": data.IsOphthalmology,
+			"reason":          data.Reason,
+			"skippedIntent":   data.SkippedIntent,
 		},
 	})
 

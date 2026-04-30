@@ -71,6 +71,8 @@ const (
 	ResponseTypeKeywordQuery ResponseType = "keyword_query"
 	// Query intent explore response type (for KnowledgeQA pipeline stages)
 	ResponseTypeQueryIntentExplore ResponseType = "query_intent_explore"
+	// Domain check response type (for KnowledgeQA pipeline stages)
+	ResponseTypeDomainCheck ResponseType = "domain_check"
 )
 
 // StreamResponse stream response

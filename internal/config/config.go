@@ -83,6 +83,7 @@ type ConversationConfig struct {
 	EnableRewrite            bool           `yaml:"enable_rewrite"                     json:"enable_rewrite"`
 	EnableQueryExpansion     bool           `yaml:"enable_query_expansion"         json:"enable_query_expansion"`
 	EnableQueryIntentExplore bool           `yaml:"enable_query_intent_explore"  json:"enable_query_intent_explore"`
+	EnableDomainCheck        bool           `yaml:"enable_domain_check"            json:"enable_domain_check"`
 	EnableRerank             bool           `yaml:"enable_rerank"                    json:"enable_rerank"`
 	Summary                  *SummaryConfig `yaml:"summary"                          json:"summary"`
 
@@ -95,6 +96,7 @@ type ConversationConfig struct {
 	ExtractRelationshipsPromptID string `yaml:"extract_relationships_prompt_id"   json:"extract_relationships_prompt_id"`
 	GenerateQuestionsPromptID    string `yaml:"generate_questions_prompt_id"      json:"generate_questions_prompt_id"`
 	IntentExplorePromptID        string `yaml:"intent_explore_prompt_id"    json:"intent_explore_prompt_id"`
+	DomainCheckPromptID          string `yaml:"domain_check_prompt_id"      json:"domain_check_prompt_id"`
 
 	// Resolved prompt text fields (populated by backfill, not from YAML)
 	FallbackPrompt             string `yaml:"-" json:"fallback_prompt"`
@@ -102,6 +104,8 @@ type ConversationConfig struct {
 	RewritePromptUser          string `yaml:"-" json:"rewrite_prompt_user"`
 	IntentExplorePrompt        string `yaml:"-" json:"intent_explore_prompt"`
 	IntentExplorePromptUser    string `yaml:"-" json:"intent_explore_prompt_user"`
+	DomainCheckPrompt          string `yaml:"-" json:"domain_check_prompt"`
+	DomainCheckPromptUser      string `yaml:"-" json:"domain_check_prompt_user"`
 	GenerateSessionTitlePrompt string `yaml:"-" json:"generate_session_title_prompt"`
 	GenerateSummaryPrompt      string `yaml:"-" json:"generate_summary_prompt"`
 	ExtractEntitiesPrompt      string `yaml:"-" json:"extract_entities_prompt"`
@@ -234,6 +238,8 @@ type PromptTemplatesConfig struct {
 	IntentPrompts []PromptTemplate `yaml:"intent_prompts" json:"intent_prompts,omitempty"`
 	// IntentExplore holds multi-vector retrieval intent exploration prompts
 	IntentExplore []PromptTemplate `yaml:"intent_explore" json:"intent_explore,omitempty"`
+	// DomainCheck holds domain relevance check prompts
+	DomainCheck []PromptTemplate `yaml:"domain_check" json:"domain_check,omitempty"`
 }
 
 // DefaultTemplate returns the first template marked as default in the list,
@@ -619,6 +625,21 @@ func backfillConversationDefaults(cfg *Config) {
 	} else {
 		fmt.Printf("Info: intent_explore_prompt_id is empty and no IntentExplore templates found\n")
 	}
+	if conv.DomainCheckPromptID != "" {
+		fmt.Printf("Info: Looking for domain_check prompt with ID: %s\n", conv.DomainCheckPromptID)
+		fmt.Printf("Info: DomainCheck templates available: %d\n", len(pt.DomainCheck))
+		for i, t := range pt.DomainCheck {
+			fmt.Printf("  DomainCheck Template[%d]: ID=%s, Name=%s\n", i, t.ID, t.Name)
+		}
+		if t := FindTemplateByID(pt, conv.DomainCheckPromptID); t != nil {
+			conv.DomainCheckPrompt = t.Content
+			fmt.Printf("Loaded domain_check prompt: %s (ID: %s)\n", t.Name, conv.DomainCheckPromptID)
+		} else {
+			fmt.Printf("Warning: domain_check_prompt_id %q not found\n", conv.DomainCheckPromptID)
+		}
+	} else {
+		fmt.Printf("Info: domain_check_prompt_id is empty\n")
+	}
 	if conv.Summary != nil {
 		if conv.Summary.PromptID != "" {
 			if t := FindTemplateByID(pt, conv.Summary.PromptID); t != nil {
@@ -668,6 +689,7 @@ func FindTemplateByID(pt *PromptTemplatesConfig, id string) *PromptTemplate {
 		pt.GenerateQuestions,
 		pt.IntentPrompts,
 		pt.IntentExplore,
+		pt.DomainCheck,
 	} {
 		for i := range list {
 			if list[i].ID == id {
@@ -720,6 +742,7 @@ func loadPromptTemplates(configDir string) (*PromptTemplatesConfig, error) {
 		"generate_questions.yaml":     &config.GenerateQuestions,
 		"intent_prompts.yaml":         &config.IntentPrompts,
 		"intent_explore.yaml":         &config.IntentExplore,
+		"domain_check.yaml":           &config.DomainCheck,
 	}
 
 	// 加载每个模板文件

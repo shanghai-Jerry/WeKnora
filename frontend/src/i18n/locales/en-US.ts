@@ -1901,6 +1901,13 @@ export default {
     queryExpansion: 'Query Expansion',
     evidenceRetrieval: 'Evidence Retrieval Completed',
   },
+  pipeline: {
+    domainCheck: {
+      ophthalmology: 'Ophthalmology Domain Confirmed',
+      nonOphthalmology: 'Non-Ophthalmology Domain',
+      skippedIntentExplore: 'Intent Explore Skipped',
+    },
+  },
   tenant: {
     title: 'Tenant Information',
     currentTenant: 'Current Tenant',

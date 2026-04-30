@@ -1,85 +1,74 @@
 # AGENTS.md
 
-## Build Commands
+## Planning Workflow
 
-```bash
-# Start infrastructure + dev servers (fast dev mode - recommended)
-make dev-start      # Start dependencies (postgres, redis, neo4j, docreader, etc.)
-make dev-app        # Start backend (hot reload with Air)
-make dev-frontend  # Start frontend (Vite hot reload)
+Before starting any significant feature or requirement modification:
 
-# Or use the quick script
-./scripts/quick-dev.sh
+1. **Check Existing Requirement Doc**
+   - First check `docs/requirements/` for an existing matching document
+   - If found, read it directly to understand the requirement (avoid re-searching codebase)
+   - Only if no document exists, perform codebase search, then immediately create the document
+
+2. **Create Planning Document**
+   - Create `plans/{feature-name}-{date}.md` (date format: YYYYMMDD) with:
+     - Overview of the change
+     - Affected components and files
+     - Implementation steps
+     - Testing strategy
+     - Expected deliverables
+     - Link to requirement doc: `docs/requirements/{slug}.md`
+
+3. **Review with User**
+   - Present the plan and get approval before execution
+
+4. **Execute According to Plan**
+   - Follow the implementation steps
+   - Update plan if adjustments are needed
+
+5. **Update Documentation After Completion**
+   - Update `docs/CHANGELOG.md` with:
+     - Feature name and date
+     - Link to plan file (`plans/xxx.md`)
+     - Link to requirement doc (`docs/requirements/xxx.md`)
+     - Summary of changes made
+     - Affected components
+   - Update `docs/ROADMAP.md` checklist if applicable (mark `[x]`)
+   - Update `docs/requirements/{slug}.md` with change history
+
+## Requirement Doc Convention
+
+All requirement documents are stored in `docs/requirements/{slug}.md` with a fixed template:
+
+```markdown
+# {Requirement Name}
+
+## Original Requirement
+[What was requested]
+
+## Scope
+### In Scope
+- ...
+
+### Out of Scope
+- ...
+
+## Key Decisions & Tradeoffs
+- ...
+
+## Affected Components
+- ...
+
+## Change History
+| Date | Change | Reason |
+|------|--------|--------|
+| YYYY-MM-DD | Initial creation | Original requirement |
+
+## Related Links
+- Plan: `plans/{feature-name}-{date}.md`
+- Related: ...
 ```
 
-## Run Tests
-
-```bash
-go test -v ./...
-```
-
-## Database Migrations
-
-```bash
-make migrate-up                  # Apply migrations
-make migrate-down                # Rollback
-make migrate-create name=xxx       # Create new migration
-make migrate-goto version=3      # Go to specific version
-```
-
-## Docker Services
-
-```bash
-# Start all services
-docker compose up -d
-# With profiles
-docker-compose --profile full up -d        # All features
-docker-compose --profile neo4j up -d    # With Neo4j knowledge graph
-docker-compose --profile minio up -d    # With MinIO storage
-```
-
-## Code Quality
-
-```bash
-make fmt          # go fmt
-make lint         # golangci-lint run
-make docs         # Generate Swagger API docs (swag init)
-```
-
-## Key Entry Points
-
-- Backend: `cmd/server/main.go`
-- Docreader: `cmd/docreader/` (separate gRPC service)
-- Frontend: `frontend/` (Vue 3 + Vite)
-- Migrations: `internal/database/migration.go`
-
-## Dependencies
-
-- PostgreSQL (paradedb v0.21.4-pg17 for vector search)
-- Redis (session/stream management)
-- Neo4j (knowledge graph - optional)
-- gRPC docreader (document parsing)
-- Multiple vector DB options: Elasticsearch, Qdrant, Milvus, Weaviate
-
-## Environment
-
-Copy `.env.example` to `.env` and configure. Required variables are documented in the comments.
-
-## Project Structure
-
-```
-WeKnora/
-├── cmd/           # Entry points (server, docreader, pipeline)
-├── client/        # Go client library
-├── config/        # YAML config
-├── docker/        # Dockerfiles
-├── docreader/     # Document parsing service (gRPC)
-├── frontend/      # Vue 3 frontend
-├── internal/     # Core business logic
-├── migrations/    # DB migrations
-├── skills/        # Agent skills
-└── scripts/      # Dev/deploy scripts
-```
+When modifying an existing requirement, ALWAYS read `docs/requirements/{slug}.md` first.
 
 ## Notable Conventions
 

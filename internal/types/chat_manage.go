@@ -105,6 +105,7 @@ type PipelineState struct {
 	QuotedContext        string             `json:"-"` // Quoted message text, injected at LLM prompt stage
 	SystemPromptOverride string             `json:"-"`
 	IntentExploreData    *IntentExploreData `json:"intent_explore_data,omitempty"`
+	SkipIntentExplore    bool               `json:"-"` // Set by domain check to skip intent explore
 }
 
 // PipelineContext holds runtime context for the current pipeline execution.
@@ -231,6 +232,7 @@ type EventType string
 const (
 	LOAD_HISTORY           EventType = "load_history"
 	QUERY_UNDERSTAND       EventType = "query_understand"
+	DOMAIN_CHECK           EventType = "domain_check"
 	QUERY_INTENT_EXPLORE   EventType = "query_intent_explore"
 	CHUNK_SEARCH           EventType = "chunk_search"
 	CHUNK_SEARCH_PARALLEL  EventType = "chunk_search_parallel"

@@ -1,7 +1,9 @@
 import torch
+import gc
+import asyncio
 import uvicorn
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from typing import List
 
@@ -64,40 +66,55 @@ app = FastAPI(
     version="1.0.1"
 )
 
+# 定期内存清理任务（每5分钟）
+async def periodic_memory_cleanup():
+    """定期清理内存，避免频繁调用影响性能"""
+    while True:
+        await asyncio.sleep(300)  # 5分钟
+        if device.type == 'mps':
+            torch.mps.empty_cache()
+            print("定期清理: MPS缓存已清理")
+        gc.collect()
+        print("定期清理: Python垃圾回收已完成")
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(periodic_memory_cleanup())
+
+# 内存监控端点
+@app.get("/memory")
+def memory_status():
+    status = {"device": str(device)}
+    if device.type == 'mps' and hasattr(torch.mps, 'current_allocated_memory'):
+        status["mps_allocated_mb"] = torch.mps.current_allocated_memory() / 1024**2
+    return status
+
 # --- 4. 定义API端点 ---
-# --- 修改开始：将 response_model 指向新的测试用响应结构 ---
-@app.post("/rerank", response_model=TestFinalResponse) # <--- 【关键修改点】response_model 改为 TestFinalResponse
+@app.post("/rerank", response_model=TestFinalResponse)
 def rerank_endpoint(request: RerankRequest):
-    # --- 修改结束 ---
-
+    # 轻量级处理：仅删除引用，不调用empty_cache和gc
     pairs = [[request.query, doc] for doc in request.documents]
-
+    
     with torch.no_grad():
         inputs = tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=1024).to(device)
         scores = model(**inputs, return_dict=True).logits.view(-1, ).float()
-
-    # --- 修改开始：按照测试用的结构来构建结果 ---
+        # 立即删除inputs释放引用
+        del inputs
+    
     results = []
     for i, (text, score_val) in enumerate(zip(request.documents, scores)):
-        
-        # 1. 创建嵌套的 document 对象
         doc_info = DocumentInfo(text=text)
-        
-        # 2. 创建 TestRankResult 对象
-        #    注意字段名：index, document, score
         test_result = TestRankResult(
             index=i,
             document=doc_info,
-            score=score_val.item()  # <--- 【关键修改点】赋值给 "score" 字段
+            score=score_val.item()
         )
         results.append(test_result)
-
-    # 3. 排序 (key 也要相应修改为 score)
-    sorted_results = sorted(results, key=lambda x: x.score, reverse=True)
-    # --- 修改结束 ---
     
-    # 返回一个字典，FastAPI 会根据 response_model (TestFinalResponse) 来验证和序列化它
-    # 最终生成的 JSON 会是 {"results": [{"index": ..., "document": ..., "score": ...}]}
+    # 删除scores引用
+    del scores
+    
+    sorted_results = sorted(results, key=lambda x: x.score, reverse=True)
     return {"results": sorted_results}
 
 @app.get("/")

@@ -20,6 +20,8 @@ conversation:
   enable_query_expansion: false
   enable_query_intent_explore: true
   intent_explore_prompt_id: "default_intent_explore"
+  enable_domain_check: true
+  domain_check_prompt_id: "default_domain_check"
   enable_rerank: true
   rewrite_prompt_id: "default_rewrite"  # from prompt_templates/rewrite.yaml (content + user fields)
   generate_summary_prompt_id: "default_summary"  # from prompt_templates/generate_summary.yaml

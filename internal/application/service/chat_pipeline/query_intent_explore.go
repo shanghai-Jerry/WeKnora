@@ -2,10 +2,12 @@ package chatpipeline
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/event"
@@ -13,12 +15,14 @@ import (
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/redis/go-redis/v9"
 )
 
 type PluginQueryIntentExplore struct {
 	modelService interfaces.ModelService
 	config       *config.Config
 	searchPlugin *PluginSearch
+	redisClient  *redis.Client
 }
 
 type intentExploreOutput struct {
@@ -53,6 +57,7 @@ func NewPluginQueryIntentExplore(
 	sessionService interfaces.SessionService,
 	webSearchStateService interfaces.WebSearchStateService,
 	webSearchProviderRepo interfaces.WebSearchProviderRepository,
+	redisClient *redis.Client,
 ) *PluginQueryIntentExplore {
 	searchPlugin := &PluginSearch{
 		knowledgeBaseService:  knowledgeBaseService,
@@ -70,6 +75,7 @@ func NewPluginQueryIntentExplore(
 		modelService: modelService,
 		config:       config,
 		searchPlugin: searchPlugin,
+		redisClient:  redisClient,
 	}
 	eventManager.Register(res)
 	return res
@@ -82,10 +88,10 @@ func (p *PluginQueryIntentExplore) ActivationEvents() []types.EventType {
 func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
-	if !chatManage.EnableQueryIntentExplore {
+	if !chatManage.EnableQueryIntentExplore || chatManage.SkipIntentExplore {
 		pipelineInfo(ctx, "QueryIntentExplore", "skip", map[string]interface{}{
 			"session_id": chatManage.SessionID,
-			"reason":     "feature_disabled",
+			"reason":     "feature_disabled_or_domain_check_failed",
 		})
 		return next()
 	}
@@ -94,6 +100,77 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 		"session_id":    chatManage.SessionID,
 		"rewrite_query": chatManage.RewriteQuery,
 	})
+
+	// Try to get result from cache first
+	cacheKey := p.getCacheKey(chatManage.Query)
+	logger.Infof(ctx, "QueryIntentExplore Cache key: %s", cacheKey)
+	cachedOutput, err := p.getFromCache(ctx, cacheKey)
+	if err != nil {
+		logger.Debugf(ctx, "Failed to get from cache: %v", err)
+	}
+	if cachedOutput != nil {
+		pipelineInfo(ctx, "QueryIntentExplore", "cache_hit", map[string]interface{}{
+			"session_id": chatManage.SessionID,
+			"cache_key":  cacheKey,
+		})
+		// Use cached output
+		output := cachedOutput
+		chatManage.IntentExploreData = &types.IntentExploreData{
+			OriginalQuery:      chatManage.RewriteQuery,
+			FinalSearchQueries: output.FinalSearchQueries,
+		}
+		for _, path := range output.AnalysisPaths {
+			chatManage.IntentExploreData.AnalysisPaths = append(chatManage.IntentExploreData.AnalysisPaths, &types.AnalysisPath{
+				PathID:               path.PathID,
+				Entity:               path.Entity,
+				Dimensions:           path.Dimensions,
+				MergedSearchString:   path.MergedSearchString,
+				Reason:               path.Reason,
+				SourceEntity:         path.SourceEntity,
+				TargetEntity:         path.TargetEntity,
+				InteractionType:      path.InteractionType,
+				MechanisticLink:      path.MechanisticLink,
+				ClinicalSignificance: path.ClinicalSignificance,
+			})
+		}
+
+		pipelineInfo(ctx, "QueryIntentExplore", "intent_explored", map[string]interface{}{
+			"session_id":        chatManage.SessionID,
+			"path_count":        len(output.AnalysisPaths),
+			"final_query_count": len(output.FinalSearchQueries),
+		})
+
+		if chatManage.EventBus != nil {
+			paths := make([]*event.AnalysisPath, len(output.AnalysisPaths))
+			for i, path := range output.AnalysisPaths {
+				paths[i] = &event.AnalysisPath{
+					PathID:               path.PathID,
+					Entity:               path.Entity,
+					Dimensions:           path.Dimensions,
+					MergedSearchString:   path.MergedSearchString,
+					Reason:               path.Reason,
+					SourceEntity:         path.SourceEntity,
+					TargetEntity:         path.TargetEntity,
+					InteractionType:      path.InteractionType,
+					MechanisticLink:      path.MechanisticLink,
+					ClinicalSignificance: path.ClinicalSignificance,
+				}
+			}
+			chatManage.EventBus.Emit(ctx, types.Event{
+				Type:      types.EventType(event.EventQueryIntentExplore),
+				SessionID: chatManage.SessionID,
+				Data: event.QueryIntentExploreData{
+					OriginalQuery:      chatManage.RewriteQuery,
+					AnalysisPaths:      paths,
+					FinalSearchQueries: output.FinalSearchQueries,
+					TotalSearchCount:   len(chatManage.SearchResult),
+				}})
+		}
+		// 优先触发sse事件，再触发搜索
+		p.searchMultiplePaths(ctx, chatManage, output.FinalSearchQueries)
+
+		return next()
+	}
 
 	modelID := chatManage.ChatModelID
 	if chatManage.IntentExploreModelID != "" {
@@ -170,7 +247,7 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 
 	fullContentString := fullContent.String()
 
-	logger.Infof(ctx, "QueryIntentExplore content llm response: %s", fullContentString)
+	logger.Debugf(ctx, "QueryIntentExplore content llm response: %s", fullContentString)
 
 	output := p.parseOutput(fullContentString)
 	if output == nil {
@@ -179,6 +256,23 @@ func (p *PluginQueryIntentExplore) OnEvent(ctx context.Context,
 			"raw_response": fullContentString,
 		})
 		return next()
+	}
+
+	// Cache the result for future use (only if output is not empty)
+	if len(output.FinalSearchQueries) > 0 {
+		if err := p.setToCache(ctx, cacheKey, output, 24*time.Hour); err != nil {
+			logger.Warnf(ctx, "Failed to cache intent explore result: %v", err)
+		} else {
+			pipelineInfo(ctx, "QueryIntentExplore", "cached", map[string]interface{}{
+				"session_id": chatManage.SessionID,
+				"cache_key":  cacheKey,
+			})
+		}
+	} else {
+		pipelineInfo(ctx, "QueryIntentExplore", "skip_cache", map[string]interface{}{
+			"session_id": chatManage.SessionID,
+			"reason":     "empty_output",
+		})
 	}
 
 	chatManage.IntentExploreData = &types.IntentExploreData{
@@ -337,4 +431,50 @@ func ParseIntentExploreOutput(content string) *IntentExploreOutput {
 	}
 
 	return &out
+}
+
+// getCacheKey generates a cache key for the given query
+func (p *PluginQueryIntentExplore) getCacheKey(query string) string {
+	hash := md5.Sum([]byte(query))
+	return fmt.Sprintf("intent_explore:%x", hash)
+}
+
+// getFromCache retrieves intent explore output from cache
+// Returns (nil, nil) if key not found (cache miss)
+func (p *PluginQueryIntentExplore) getFromCache(ctx context.Context, key string) (*intentExploreOutput, error) {
+	if p.redisClient == nil {
+		logger.Warnf(ctx, "QueryIntentExplore: redis client not initialized")
+		return nil, nil
+	}
+
+	data, err := p.redisClient.Get(ctx, key).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			// Key not found - normal cache miss
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var output intentExploreOutput
+	if err := json.Unmarshal(data, &output); err != nil {
+		return nil, err
+	}
+
+	return &output, nil
+}
+
+// setToCache stores intent explore output in cache
+func (p *PluginQueryIntentExplore) setToCache(ctx context.Context, key string, output *intentExploreOutput, expiration time.Duration) error {
+	if p.redisClient == nil {
+		logger.Warnf(ctx, "QueryIntentExplore: redis client not initialized")
+		return nil
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		return err
+	}
+
+	return p.redisClient.Set(ctx, key, data, expiration).Err()
 }

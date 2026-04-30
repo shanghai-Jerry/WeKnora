@@ -444,6 +444,13 @@ export default {
     queryExpansion: "Query 扩展",
     evidenceRetrieval: "已完成循证检索",
   },
+  pipeline: {
+    domainCheck: {
+      ophthalmology: "已确认眼科领域问题",
+      nonOphthalmology: "非眼科领域问题",
+      skippedIntentExplore: "已跳过多路径意图探索",
+    },
+  },
   settings: {
     title: "设置",
     modelConfig: "模型配置",

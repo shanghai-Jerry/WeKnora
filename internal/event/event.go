@@ -20,6 +20,7 @@ const (
 	EventQueryRewritten     EventType = "query.rewritten"      // 查询改写完成
 	EventQueryExpansion     EventType = "query.expansion"      // Query Expansion 扩展查询
 	EventQueryIntentExplore EventType = "query.intent_explore" // 多路检索意图探索
+	EventDomainCheck        EventType = "query.domain_check"   // 领域检查
 
 	// Retrieval events
 	EventRetrievalStart    EventType = "retrieval.start"         // 检索开始

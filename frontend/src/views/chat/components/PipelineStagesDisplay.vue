@@ -15,6 +15,29 @@
     <div v-show="expanded" class="stages-content">
       <div class="timeline-track"></div>
 
+      <!-- Step 0: 领域检查 -->
+      <div v-if="hasDomainCheck" class="stage-item domain-check-step">
+        <div class="timeline-dot" :class="domainCheckStatus">
+          <svg v-if="domainCheck?.isOphthalmology" viewBox="0 0 24 24" fill="currentColor" class="check-icon">
+            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="currentColor" class="skip-icon">
+            <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm3 10.5a.75.75 0 0 0 0-1.5H9a.75.75 0 0 0 0 1.5h6Z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="stage-label">
+          {{ domainCheck?.isOphthalmology ? $t('pipeline.domainCheck.ophthalmology') : $t('pipeline.domainCheck.nonOphthalmology') }}
+        </div>
+        <div class="stage-body">
+          <div class="domain-check-info">
+            <span class="domain-reason">{{ domainCheck?.reason }}</span>
+            <span v-if="domainCheck?.skippedIntent" class="domain-skipped">
+              {{ $t('pipeline.domainCheck.skippedIntentExplore') }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Step 1: 已理解问题并定位研究方向 -->
       <div v-if="hasIntentExplore" class="stage-item evidence-step">
         <div class="timeline-dot completed">
@@ -284,6 +307,13 @@ interface PipelineStages {
   keywordQuery?: string;
   expansions?: string[];
   intentExplore?: IntentExploreData;
+  domainCheck?: DomainCheckData;
+}
+
+interface DomainCheckData {
+  isOphthalmology: boolean;
+  reason: string;
+  skippedIntent: boolean;
 }
 
 const props = defineProps<{
@@ -299,7 +329,7 @@ const canvasSize = ref({ w: 640 });
 const MAX_ENTITIES = 8;
 const ENTITY_R = 44;
 const DIM_R = 18;
-const DIM_DIST = 90;   // 维度距实体中心的距离
+const DIM_DIST = 100;   // 维度距实体中心的距离
 
 let ro: ResizeObserver | null = null;
 
@@ -352,6 +382,17 @@ const hasIntentExplore = computed(() => {
 });
 
 const intentExplore = computed(() => props.pipelineStages?.intentExplore);
+
+const hasDomainCheck = computed(() => {
+  return props.pipelineStages?.domainCheck !== undefined;
+});
+
+const domainCheck = computed(() => props.pipelineStages?.domainCheck);
+
+const domainCheckStatus = computed(() => {
+  if (!domainCheck.value) return '';
+  return domainCheck.value.isOphthalmology ? 'ophthalmology' : 'non-ophthalmology';
+});
 
 const hasReferences = computed(() => props.knowledgeReferences && props.knowledgeReferences.length > 0);
 const knowledgeReferences = computed(() => props.knowledgeReferences || []);
@@ -486,25 +527,26 @@ const layout = computed<LayoutResult>(() => {
   const periphery = entities.filter((e) => e.id !== centerId);
   const count = periphery.length;
 
-  // 固定半径，保证节点不重叠、不拥挤
-  // 实体半径 40（CSS 中最大实体直径 80px），两实体中心距至少 2*40 + 30 = 110
-  // 加上维度标签后，半径需更大
+  // 固定半径，保证节点不重叠、紧凑排列
+  // 实体半径 44（CSS 中最大实体直径 92px），两实体中心距需大于直径
   let radius: number;
   if (count === 0) radius = 0;
-  else if (count === 1) radius = 160;
-  else if (count === 2) radius = 180;
-  else if (count <= 4) radius = 200;
-  else if (count <= 6) radius = 220;
-  else radius = 240;
+  else if (count === 1) radius = 130;
+  else if (count === 2) radius = 140;
+  else if (count <= 4) radius = 150;
+  else if (count <= 6) radius = 170;
+  else radius = 190;
 
-  // 起始角度：1个放右侧，2个左右对称，3个均匀，更多圆周
+  // 起始角度：横向优先扩展（先左右，再上下）
+  // 1个放右侧，2个左右对称，3个以上优先横向分布
   let startAngle = 0;
   if (count === 1) {
     startAngle = 0; // 右侧
   } else if (count === 2) {
-    startAngle = Math.PI; // 180° 开始：左、右
+    startAngle = Math.PI; // 左右对称（从 180° 开始）
   } else {
-    startAngle = -Math.PI / 2 - Math.PI / count;
+    // 横向优先：从右侧开始，优先向左右分布
+    startAngle = 0;
   }
 
   periphery.forEach((e, i) => {
@@ -558,8 +600,14 @@ const layout = computed<LayoutResult>(() => {
 
     if (node.isCenter) {
       const blockMargin = Math.PI / 5;
+      // 中心实体的维度优先向左右两侧展开（避开上下方向的外围实体）
       baseAngle = findBestBaseAngle(peripheralAngles, blockMargin + spread / 2);
+      // 如果没有外围实体，默认向右侧展开
+      if (peripheralAngles.length === 0) {
+        baseAngle = 0;
+      }
     } else {
+      // 外围实体的维度朝向外侧
       baseAngle = Math.atan2(node.y, node.x);
     }
 
@@ -686,14 +734,16 @@ const layout = computed<LayoutResult>(() => {
       });
 
       // 维度与所有实体的碰撞检测（包括父实体，确保维度不落在实体圆内）
+      // 使用实际标签宽度计算最小距离
+      const dimHalfW = textWi / 2;
       rawNodes.forEach((n) => {
         const dx = di.x - n.x;
         const dy = di.y - n.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        // 维度与实体的最小距离：实体半径 + 维度半径 + 间距
-        const minDist = ENTITY_R + DIM_R + 8;
+        // 维度与实体的最小距离：实体半径 + 维度标签半宽 + 小间距
+        const minDist = ENTITY_R + dimHalfW + 6;
         if (dist < minDist) {
-          const push = minDist - dist + 4;
+          const push = minDist - dist + 2;
           di.x += (dx / dist) * push;
           di.y += (dy / dist) * push;
           moved = true;
@@ -750,7 +800,7 @@ const layout = computed<LayoutResult>(() => {
   }
 
   // 实体间碰撞检测：确保实体节点不重叠
-  const ENTITY_MIN_DIST = ENTITY_R * 2 + 24; // 两实体半径 + 最小间距
+  const ENTITY_MIN_DIST = ENTITY_R * 2 + 16; // 两实体半径 + 最小间距（紧凑排列）
   for (let iter = 0; iter < 50; iter++) {
     let moved = false;
     for (let i = 0; i < rawNodes.length; i++) {
@@ -966,6 +1016,16 @@ const truncateContent = (content: string) => {
       background: #22c55e;
       .check-icon { width: 14px; height: 14px; color: white; }
     }
+    &.ophthalmology {
+      border-color: #22c55e;
+      background: #22c55e;
+      .check-icon { width: 14px; height: 14px; color: white; }
+    }
+    &.non-ophthalmology {
+      border-color: #f59e0b;
+      background: #f59e0b;
+      .skip-icon { width: 14px; height: 14px; color: white; }
+    }
     .dot-inner { width: 8px; height: 8px; border-radius: 50%; background: var(--td-component-stroke); }
   }
   .stage-label {
@@ -991,6 +1051,29 @@ const truncateContent = (content: string) => {
   border-radius: 12px;
   border: 1px solid var(--td-component-stroke);
   padding: 20px;
+}
+
+.domain-check-step .stage-body {
+  background: var(--td-bg-color-secondarycontainer);
+  border-radius: 12px;
+  border: 1px solid var(--td-component-stroke);
+  padding: 12px 16px;
+}
+
+.domain-check-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  .domain-reason {
+    font-size: 13px;
+    color: var(--td-text-color-secondary);
+    line-height: 1.5;
+  }
+  .domain-skipped {
+    font-size: 12px;
+    color: #f59e0b;
+    font-weight: 500;
+  }
 }
 
 .evidence-stats {

@@ -623,6 +623,48 @@ onChunk((data) => {
         return;
     }
     
+    // 处理 domain_check 事件 - 在两种模式下都需要处理，存入 pipeline_stages
+    if (data.response_type === 'domain_check') {
+        let existingMessage = messagesList.findLast((item) => item.request_id === data.id || item.id === data.id);
+        
+        if (!existingMessage) {
+            existingMessage = {
+                id: data.id,
+                request_id: data.id,
+                role: 'assistant',
+                content: '',
+                showThink: false,
+                thinkContent: '',
+                thinking: false,
+                is_completed: false,
+                isAgentMode: isCurrentlyAgentMode,
+                knowledge_references: [],
+                pipeline_stages: {}
+            };
+            messagesList.push(existingMessage);
+            loading.value = false;
+            scrollToBottom();
+        }
+        
+        if (!existingMessage.pipeline_stages) {
+            existingMessage.pipeline_stages = {};
+        }
+        
+        existingMessage.pipeline_stages.domainCheck = {
+            isOphthalmology: data.data?.is_ophthalmology ?? false,
+            reason: data.data?.reason || '',
+            skippedIntent: data.data?.skipped_intent ?? false
+        };
+        console.log('[Pipeline] Domain Check (dual-mode):', existingMessage.pipeline_stages.domainCheck);
+        
+        const msgIndex = messagesList.findIndex((item) => item === existingMessage);
+        if (msgIndex !== -1) {
+            messagesList[msgIndex] = { ...existingMessage };
+        }
+        
+        return;
+    }
+    
     // 处理 references 事件 - 在两种模式下都需要处理，但不改变模式
     if (data.response_type === 'references') {
         // 如果当前是 Agent 模式，走 Agent 处理

@@ -240,6 +240,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Invoke(chatpipeline.NewPluginSearchEntity))
 	must(container.Invoke(chatpipeline.NewPluginSearchParallel))
 	must(container.Invoke(chatpipeline.NewPluginQueryIntentExplore))
+	must(container.Invoke(chatpipeline.NewPluginDomainCheck))
 	must(container.Invoke(chatpipeline.NewMemoryPlugin))
 	logger.Debugf(ctx, "[Container] Chat pipeline plugins registered")
 
