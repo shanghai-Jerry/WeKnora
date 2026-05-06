@@ -13,7 +13,7 @@
     </div>
 
     <!-- Domain Check: 领域检查 (独立展示，放在循证检索框外面) -->
-    <div v-if="hasDomainCheck" class="domain-check-block">
+    <div v-if="shouldShowDomainCheck" class="domain-check-block">
       <div class="domain-check-header">
         <div class="domain-check-icon" :class="domainCheckStatus">
           <svg v-if="domainCheck?.isOphthalmology" viewBox="0 0 24 24" fill="currentColor">
@@ -38,7 +38,7 @@
       <div class="loading-dots">
         <span></span><span></span><span></span>
       </div>
-      <span class="waiting-text">正在分析问题意图...</span>
+      <span class="waiting-text">正在分析问题...</span>
     </div>
 
     <!-- 循证检索框 -->
@@ -88,12 +88,15 @@
                   />
                   <text
                     v-if="edge.label"
-                    :x="edge.midX"
-                    :y="edge.midY"
+                    :x="edge.labelX"
+                    :y="edge.labelY"
                     text-anchor="middle"
                     dominant-baseline="middle"
                     font-size="9"
                     fill="#7a8594"
+                    stroke="white"
+                    stroke-width="3"
+                    paint-order="stroke"
                     style="pointer-events: none;"
                   >
                     {{ edge.label }}
@@ -415,6 +418,10 @@ const domainCheckStatus = computed(() => {
   return domainCheck.value.isOphthalmology ? 'ophthalmology' : 'non-ophthalmology';
 });
 
+const shouldShowDomainCheck = computed(() => {
+  return hasDomainCheck.value && domainCheck.value?.isOphthalmology;
+});
+
 const hasReferences = computed(() => props.knowledgeReferences && props.knowledgeReferences.length > 0);
 const knowledgeReferences = computed(() => props.knowledgeReferences || []);
 const totalReferencesCount = computed(() => {
@@ -489,6 +496,7 @@ interface GraphEdge {
   to: string;
   x1: number; y1: number; x2: number; y2: number;
   midX: number; midY: number;
+  labelX: number; labelY: number;
   label?: string;
 }
 
@@ -695,15 +703,27 @@ const layout = computed<LayoutResult>(() => {
     return true;
   };
 
-  const entityEdgeSegments: { x1: number; y1: number; x2: number; y2: number; midX: number; midY: number }[] = [];
+  const entityEdgeSegments: { x1: number; y1: number; x2: number; y2: number; midX: number; midY: number; labelX: number; labelY: number }[] = [];
   intentExplore.value?.analysisPaths.forEach((path) => {
     if (!path.source_entity || !path.target_entity) return;
     const s = rawNodes.find((n) => n.id === path.source_entity);
     const t = rawNodes.find((n) => n.id === path.target_entity);
     if (!s || !t) return;
+    const dx = t.x - s.x;
+    const dy = t.y - s.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const midX = (s.x + t.x) / 2;
+    const midY = (s.y + t.y) / 2;
+    const perpX = -ny;
+    const perpY = nx;
+    const offset = perpY < 0 ? 14 : -14;
     entityEdgeSegments.push({
       x1: s.x, y1: s.y, x2: t.x, y2: t.y,
-      midX: (s.x + t.x) / 2, midY: (s.y + t.y) / 2
+      midX, midY,
+      labelX: midX + perpX * offset,
+      labelY: midY + perpY * offset,
     });
   });
 
@@ -740,8 +760,8 @@ const layout = computed<LayoutResult>(() => {
         const edgeLabelH = 14; // 估计标签高度
         const minDistX = (textWi + edgeLabelW) / 2 + 6;
         const minDistY = (dimTextH + edgeLabelH) / 2 + 4;
-        const dx = di.x - seg.midX;
-        const dy = di.y - seg.midY;
+        const dx = di.x - seg.labelX;
+        const dy = di.y - seg.labelY;
         // 椭圆形碰撞检测
         const normalizedDist = Math.sqrt((dx / minDistX) ** 2 + (dy / minDistY) ** 2);
         if (normalizedDist < 1) {
@@ -903,6 +923,11 @@ const layout = computed<LayoutResult>(() => {
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const nx = dx / dist;
     const ny = dy / dist;
+    const midX = (s.x + t.x) / 2;
+    const midY = (s.y + t.y) / 2;
+    const perpX = -ny;
+    const perpY = nx;
+    const offset = perpY < 0 ? 14 : -14;
     edges.push({
       from: path.source_entity,
       to: path.target_entity,
@@ -910,8 +935,10 @@ const layout = computed<LayoutResult>(() => {
       y1: s.y + ny * ENTITY_R,
       x2: t.x - nx * ENTITY_R,
       y2: t.y - ny * ENTITY_R,
-      midX: (s.x + t.x) / 2,
-      midY: (s.y + t.y) / 2,
+      midX,
+      midY,
+      labelX: midX + perpX * offset,
+      labelY: midY + perpY * offset,
       label: path.interaction_type,
     });
   });
