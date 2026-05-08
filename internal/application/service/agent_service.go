@@ -40,6 +40,7 @@ type agentService struct {
 	chunkService          interfaces.ChunkService
 	duckdb                *sql.DB
 	webSearchStateService interfaces.WebSearchStateService
+	dataSourceService     interfaces.DataSourceService
 }
 
 // NewAgentService creates a new agent service
@@ -57,6 +58,7 @@ func NewAgentService(
 	webSearchService interfaces.WebSearchService,
 	duckdb *sql.DB,
 	webSearchStateService interfaces.WebSearchStateService,
+	dataSourceService interfaces.DataSourceService,
 ) interfaces.AgentService {
 	return &agentService{
 		cfg:                   cfg,
@@ -72,6 +74,7 @@ func NewAgentService(
 		webSearchService:      webSearchService,
 		duckdb:                duckdb,
 		webSearchStateService: webSearchStateService,
+		dataSourceService:     dataSourceService,
 	}
 }
 
@@ -425,6 +428,22 @@ func (s *agentService) registerTools(
 		case tools.ToolDataSchema:
 			toolToRegister = tools.NewDataSchemaTool(s.knowledgeService, s.chunkService.GetRepository())
 			logger.Infof(ctx, "Registered data_schema tool")
+
+		case tools.ToolSQLQuery:
+			// Register sql_query tool if data sources are configured
+			if len(config.DataSourceConfigs) > 0 {
+				// Use the first data source for now (can be extended to support multiple)
+				dsConfig := config.DataSourceConfigs[0]
+				toolToRegister = tools.NewSQLQueryTool(
+					s.dataSourceService,
+					dsConfig.ID,
+					dsConfig.Type,
+					dsConfig.Config,
+				)
+				logger.Infof(ctx, "Registered sql_query tool with data source: %s (type: %s)", dsConfig.ID, dsConfig.Type)
+			} else {
+				logger.Infof(ctx, "Skipping sql_query tool: no data sources configured")
+			}
 
 		case tools.ToolFinalAnswer:
 			toolToRegister = tools.NewFinalAnswerTool()

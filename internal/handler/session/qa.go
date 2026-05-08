@@ -37,6 +37,7 @@ type qaRequestContext struct {
 	images            []ImageAttachment // Uploaded images with analysis text
 	userMessageID     string            // Created user message ID (populated after createUserMessage)
 	channel           string            // Source channel: "web", "api", "im", etc.
+	dataSourceIDs     []string          // Data source IDs for AI query (sql_query tool)
 }
 
 // buildQARequest converts the qaRequestContext into a types.QARequest for service invocation.
@@ -55,6 +56,7 @@ func (rc *qaRequestContext) buildQARequest() *types.QARequest {
 		UserMessageID:      rc.userMessageID,
 		WebSearchEnabled:   rc.webSearchEnabled,
 		EnableMemory:       rc.enableMemory,
+		DataSourceIDs:      rc.dataSourceIDs,
 	}
 }
 
@@ -160,6 +162,7 @@ func (h *Handler) parseQARequest(c *gin.Context, logPrefix string) (*qaRequestCo
 		effectiveTenantID: effectiveTenantID,
 		images:            request.Images,
 		channel:           request.Channel,
+		dataSourceIDs:     request.DataSourceIDs,
 	}
 
 	return reqCtx, &request, nil

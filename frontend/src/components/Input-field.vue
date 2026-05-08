@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useUIStore } from '@/stores/ui';
 import { useMenuStore } from '@/stores/menu';
 import { listKnowledgeBases, searchKnowledge, batchQueryKnowledge } from '@/api/knowledge-base';
+import { listDataSources } from '@/api/datasource';
 import { stopSession } from '@/api/chat';
 import { useOrganizationStore } from '@/stores/organization';
 import KnowledgeBaseSelector from './KnowledgeBaseSelector.vue';
@@ -239,7 +240,7 @@ const isModelLockedByAgent = computed(() => {
 // Mention related state
 const showMention = ref(false);
 const mentionQuery = ref("");
-const mentionItems = ref<Array<{ id: string; name: string; type: 'kb' | 'file'; kbType?: 'document' | 'faq'; count?: number; kbName?: string; orgName?: string; kbId?: string }>>([]);
+const mentionItems = ref<Array<{ id: string; name: string; type: 'kb' | 'file' | 'datasource'; kbType?: 'document' | 'faq'; count?: number; kbName?: string; orgName?: string; kbId?: string; dbType?: string }>>([]);
 /** 文件 ID -> 知识库 ID（用于批量查询时传 kb_id，支持共享知识库下的文档） */
 const fileIdToKbId = ref<Record<string, string>>({});
 const mentionActiveIndex = ref(0);
@@ -939,13 +940,38 @@ const loadMentionItems = async (q: string, resetIndex = true, append = false) =>
     mentionHasMore.value = false;
   }
   
+  // Fetch data sources for AI query (sql_query tool)
+  let dataSourceItems: any[] = [];
+  if (!append) {
+    try {
+      // 获取当前智能体的知识库ID，用于获取关联的数据源
+      const currentKbId = settingsStore.selectedKnowledgeBaseId;
+      if (currentKbId) {
+        const dsRes: any = await listDataSources(currentKbId);
+        if (dsRes?.data && Array.isArray(dsRes.data)) {
+          dataSourceItems = dsRes.data
+            .filter((ds: any) => ds.status === 'active' && (ds.type === 'mysql' || ds.type === 'postgresql' || ds.type === 'sqlite'))
+            .filter((ds: any) => !q || ds.name.toLowerCase().includes(q.toLowerCase()))
+            .map((ds: any) => ({
+              id: ds.id,
+              name: ds.name,
+              type: 'datasource' as const,
+              dbType: ds.type,
+            }));
+        }
+      }
+    } catch (e) {
+      console.error('[Mention] listDataSources error:', e);
+    }
+  }
+  
   if (append) {
     // Append file items to existing list
     mentionItems.value = [...mentionItems.value, ...fileItems];
   } else {
-    mentionItems.value = [...kbItems, ...fileItems];
+    mentionItems.value = [...kbItems, ...fileItems, ...dataSourceItems];
   }
-  console.log('[Mention] Total items:', mentionItems.value.length, { kbItems: kbItems.length, fileItems: fileItems.length });
+  console.log('[Mention] Total items:', mentionItems.value.length, { kbItems: kbItems.length, fileItems: fileItems.length, dataSourceItems: dataSourceItems.length });
   
   // Only reset index if query changed or explicitly requested
   if (resetIndex || q !== lastMentionQuery) {

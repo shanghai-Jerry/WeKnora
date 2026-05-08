@@ -62,6 +62,7 @@ type RouterParams struct {
 	OrganizationHandler      *handler.OrganizationHandler
 	IMHandler                *handler.IMHandler
 	DataSourceHandler        *handler.DataSourceHandler
+	QueryDataSourceHandler   *handler.QueryDataSourceHandler
 }
 
 // NewRouter 创建新的路由
@@ -144,6 +145,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 		RegisterOrganizationRoutes(v1, params.OrganizationHandler)
 		RegisterIMChannelRoutes(v1, params.IMHandler)
 		RegisterDataSourceRoutes(v1, params.DataSourceHandler)
+		RegisterQueryDataSourceRoutes(v1, params.QueryDataSourceHandler)
 	}
 
 	return r
@@ -795,5 +797,22 @@ func RegisterDataSourceRoutes(r *gin.RouterGroup, handler *handler.DataSourceHan
 		// Sync logs
 		ds.GET("/:id/logs", handler.GetSyncLogs)
 		ds.GET("/logs/:log_id", handler.GetSyncLog)
+	}
+}
+
+// RegisterQueryDataSourceRoutes 注册AI问数数据源相关的路由
+func RegisterQueryDataSourceRoutes(r *gin.RouterGroup, handler *handler.QueryDataSourceHandler) {
+	// Query data source routes
+	qds := r.Group("/query-data-sources")
+	{
+		// CRUD operations
+		qds.POST("", handler.Create)
+		qds.GET("", handler.List)
+		qds.GET("/:id", handler.Get)
+		qds.PUT("/:id", handler.Update)
+		qds.DELETE("/:id", handler.Delete)
+
+		// Validate connection
+		qds.POST("/validate", handler.ValidateConnection)
 	}
 }

@@ -17,4 +17,5 @@ type QARequest struct {
 	WebSearchEnabled   bool         // Whether web search is enabled for this request
 	EnableMemory       bool         // Whether memory feature is enabled
 	QuotedContext      string       // Quoted message content from IM quote-reply (appended at LLM prompt stage, not used for retrieval)
+	DataSourceIDs      []string     // Data source IDs for AI query (sql_query tool)
 }

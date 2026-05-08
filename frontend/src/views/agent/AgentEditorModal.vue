@@ -1338,6 +1338,7 @@ const allTools = computed(() => [
   { value: 'query_knowledge_graph', label: t('agentEditor.tools.queryGraph'), description: t('agentEditor.tools.queryGraphDesc'), requiresKB: true },
   { value: 'get_document_info', label: t('agentEditor.tools.getDocInfo'), description: t('agentEditor.tools.getDocInfoDesc'), requiresKB: true },
   { value: 'database_query', label: t('agentEditor.tools.dbQuery'), description: t('agentEditor.tools.dbQueryDesc'), requiresKB: true },
+  { value: 'sql_query', label: t('agentEditor.tools.sqlQuery') || 'SQL查询', description: t('agentEditor.tools.sqlQueryDesc') || '查询外部数据库（MySQL等）', requiresKB: false },
   { value: 'data_analysis', label: t('agentEditor.tools.dataAnalysis'), description: t('agentEditor.tools.dataAnalysisDesc'), requiresKB: true },
   { value: 'data_schema', label: t('agentEditor.tools.dataSchema'), description: t('agentEditor.tools.dataSchemaDesc'), requiresKB: true },
 ]);

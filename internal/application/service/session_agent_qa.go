@@ -11,6 +11,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/agent/tools"
 	chatpipeline "github.com/Tencent/WeKnora/internal/application/service/chat_pipeline"
 	llmcontext "github.com/Tencent/WeKnora/internal/application/service/llmcontext"
+	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
@@ -313,6 +314,27 @@ func (s *sessionService) buildAgentConfig(
 		agentConfig.MaxContextTokens = types.DefaultMaxContextTokens
 	}
 
+	// Configure data sources for AI query (sql_query tool)
+	if len(req.DataSourceIDs) > 0 {
+		agentConfig.DataSourceIDs = req.DataSourceIDs
+		// Pre-fetch data source configurations for tool execution
+		dataSourceConfigs, err := s.resolveDataSourceConfigs(ctx, req.DataSourceIDs)
+		if err != nil {
+			logger.Warnf(ctx, "Failed to resolve data source configs: %v", err)
+			// Continue without data sources rather than failing
+		} else {
+			agentConfig.DataSourceConfigs = dataSourceConfigs
+			logger.Infof(ctx, "Agent configured with %d data source(s): %v", len(dataSourceConfigs), req.DataSourceIDs)
+
+			// Fetch database schema and format as context for system prompt
+			dbContext := s.fetchDatabaseContext(ctx, dataSourceConfigs)
+			if dbContext != "" {
+				agentConfig.DatabaseContext = dbContext
+				logger.Infof(ctx, "Database context prepared for system prompt injection (%d chars)", len(dbContext))
+			}
+		}
+	}
+
 	return agentConfig, nil
 }
 
@@ -545,5 +567,179 @@ func formatIntentExploreSystemBlock(data *types.IntentExploreData) string {
 	sb.WriteString("- Use the above queries as the `queries` parameter in your first knowledge_search call.\n")
 	sb.WriteString("- Do NOT generate your own queries - use the pre-analyzed ones above.\n")
 	sb.WriteString("- If the pre-analyzed queries are insufficient, you may make additional knowledge_search calls.\n")
+	return sb.String()
+}
+
+// resolveDataSourceConfigs fetches data source configurations for the given IDs
+func (s *sessionService) resolveDataSourceConfigs(ctx context.Context, dataSourceIDs []string) ([]types.AgentDataSourceConfig, error) {
+	if len(dataSourceIDs) == 0 {
+		return nil, nil
+	}
+
+	var configs []types.AgentDataSourceConfig
+	for _, dsID := range dataSourceIDs {
+		if dsID == "" {
+			continue
+		}
+
+		// Get query data source from service
+		ds, err := s.queryDataSourceService.GetByID(ctx, dsID)
+		if err != nil {
+			logger.Warnf(ctx, "Failed to get query data source %s: %v", dsID, err)
+			continue
+		}
+
+		// Parse the config
+		configMap := make(map[string]interface{})
+		if ds.Config != nil {
+			if err := json.Unmarshal(ds.Config, &configMap); err != nil {
+				logger.Warnf(ctx, "Failed to parse data source config for %s: %v", dsID, err)
+				continue
+			}
+		}
+
+		configs = append(configs, types.AgentDataSourceConfig{
+			ID:     ds.ID,
+			Type:   ds.Type,
+			Name:   ds.Name,
+			Config: configMap,
+		})
+	}
+
+	if len(configs) == 0 && len(dataSourceIDs) > 0 {
+		return nil, fmt.Errorf("no valid data sources found for IDs: %v", dataSourceIDs)
+	}
+
+	return configs, nil
+}
+
+// fetchDatabaseContext fetches database schema information and formats it for system prompt injection
+// This is called only when DataSourceConfigs are present (user has referenced a datasource)
+// Format follows AI问数.md: database name, table list, CREATE TABLE DDL, and sample data
+func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []types.AgentDataSourceConfig) string {
+	if len(configs) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+
+	for _, dsConfig := range configs {
+		// Get the database connector for this type
+		connector, err := datasource.GlobalDBConnectorRegistry.Get(dsConfig.Type)
+		if err != nil {
+			logger.Warnf(ctx, "Failed to get connector for type %s: %v", dsConfig.Type, err)
+			continue
+		}
+
+		// Fetch table schema to get table names
+		tables, err := connector.GetTableSchema(ctx, dsConfig.Config)
+		if err != nil {
+			logger.Warnf(ctx, "Failed to fetch schema for data source %s: %v", dsConfig.ID, err)
+			continue
+		}
+
+		if len(tables) == 0 {
+			logger.Infof(ctx, "No tables found for data source %s", dsConfig.ID)
+			continue
+		}
+
+		// Format database name from config
+		dbName, _ := dsConfig.Config["database"].(string)
+		if dbName == "" {
+			dbName = dsConfig.Name
+		}
+
+		// Build the database context block matching AI问数.md format
+		sb.WriteString("## 数据库信息\n")
+		sb.WriteString(fmt.Sprintf("- 数据库名: %s\n", dbName))
+
+		// List all available tables
+		tableNames := make([]string, 0, len(tables))
+		for _, table := range tables {
+			tableNames = append(tableNames, table.Name)
+		}
+		sb.WriteString(fmt.Sprintf("- 可用表: %s\n", strings.Join(tableNames, ", ")))
+
+		sb.WriteString("- 表结构:\n\n")
+
+		// Add CREATE TABLE DDL and sample data for each table
+		for _, table := range tables {
+			// Get the full CREATE TABLE statement (includes column definitions, constraints, and table comment)
+			createSQL, err := connector.GetCreateTableSQL(ctx, dsConfig.Config, table.Name)
+			if err != nil {
+				logger.Warnf(ctx, "Failed to get CREATE TABLE for %s: %v, falling back to schema info", table.Name, err)
+				// Fallback: write a simple CREATE TABLE statement from schema info
+				createSQL = formatFallbackCreateTable(table)
+			}
+			sb.WriteString(createSQL)
+			sb.WriteString("\n\n")
+
+			// Get sample data (3 rows)
+			columns, rows, err := connector.GetSampleData(ctx, dsConfig.Config, table.Name, 3)
+			if err != nil {
+				logger.Warnf(ctx, "Failed to get sample data for %s: %v, skipping", table.Name, err)
+				continue
+			}
+
+			if len(rows) > 0 {
+				// Write sample data in the format from AI问数.md
+				sb.WriteString(fmt.Sprintf("/*\n%d rows from %s table:\n", len(rows), table.Name))
+
+				// Write column headers (tab-separated)
+				sb.WriteString(strings.Join(columns, "\t"))
+				sb.WriteString("\n")
+
+				// Write data rows (tab-separated)
+				for _, row := range rows {
+					values := make([]string, len(columns))
+					for i, col := range columns {
+						val := row[col]
+						if val == nil {
+							values[i] = "None"
+						} else {
+							values[i] = fmt.Sprintf("%v", val)
+						}
+					}
+					sb.WriteString(strings.Join(values, "\t"))
+					sb.WriteString("\n")
+				}
+				sb.WriteString("*/\n\n")
+			}
+		}
+
+		sb.WriteString("- 使用 'sql_query' 工具执行 SQL 查询\n")
+		sb.WriteString("- **只允许 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE**\n")
+	}
+
+	return sb.String()
+}
+
+// formatFallbackCreateTable creates a simple CREATE TABLE statement from TableInfo
+// This is used as a fallback when GetCreateTableSQL fails
+func formatFallbackCreateTable(table datasource.TableInfo) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", table.Name))
+	for i, col := range table.Columns {
+		nullable := "NOT NULL"
+		if col.Nullable {
+			nullable = "NULL"
+		}
+		primaryKey := ""
+		if col.IsPrimaryKey {
+			primaryKey = " PRIMARY KEY"
+		}
+		comment := ""
+		if col.Description != "" {
+			comment = fmt.Sprintf(" COMMENT '%s'", col.Description)
+		}
+
+		comma := ","
+		if i == len(table.Columns)-1 {
+			comma = ""
+		}
+		sb.WriteString(fmt.Sprintf("\t%s %s%s%s%s%s\n",
+			col.Name, col.Type, nullable, primaryKey, comment, comma))
+	}
+	sb.WriteString(")ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
 	return sb.String()
 }

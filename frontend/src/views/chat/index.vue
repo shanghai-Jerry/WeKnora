@@ -460,16 +460,20 @@ const sendMsg = async (value, modelId = '', mentionedItems = [], imageFiles = []
     const sidebarFileIds = useSettingsStoreInstance.settings.selectedFiles || [];
     const kbIdSet = new Set(sidebarKbIds);
     const fileIdSet = new Set(sidebarFileIds);
+    const dataSourceIdSet = new Set();
     for (const item of mentionedItems || []) {
       if (!item?.id) continue;
       if (item.type === 'kb' && !kbIdSet.has(item.id)) {
         kbIdSet.add(item.id);
       } else if (item.type === 'file' && !fileIdSet.has(item.id)) {
         fileIdSet.add(item.id);
+      } else if (item.type === 'datasource' && !dataSourceIdSet.has(item.id)) {
+        dataSourceIdSet.add(item.id);
       }
     }
     const kbIds = [...kbIdSet];
     const knowledgeIds = [...fileIdSet];
+    const dataSourceIds = [...dataSourceIdSet];
 
     // Get selected agent ID (backend resolves shared agent and its tenant from share relation)
     const selectedAgentId = useSettingsStoreInstance.selectedAgentId || '';
@@ -490,6 +494,7 @@ const sendMsg = async (value, modelId = '', mentionedItems = [], imageFiles = []
         enable_memory: enableMemory,
         summary_model_id: modelId,
         mcp_service_ids: mcpServiceIds,
+        data_source_ids: dataSourceIds,
         mentioned_items: mentionedItems,
         images: imageAttachments.length > 0 ? imageAttachments : undefined,
         query: value, 

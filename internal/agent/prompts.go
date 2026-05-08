@@ -299,6 +299,7 @@ type BuildSystemPromptOptions struct {
 	Language            string         // User language name for {{language}} placeholder (e.g. "Chinese (Simplified)")
 	Config              *config.Config // Config for reading prompt templates; nil falls back to hardcoded defaults
 	IntentExploreBlock  string         // Intent explore analysis block appended to system prompt
+	DatabaseContext     string         // Database schema context for SQL query generation (appended when user references a datasource)
 }
 
 // BuildSystemPrompt builds the progressive RAG system prompt
@@ -360,6 +361,12 @@ func BuildSystemPromptWithOptions(
 	// Append intent explore analysis if available
 	if options != nil && options.IntentExploreBlock != "" {
 		basePrompt += "\n\n" + options.IntentExploreBlock
+	}
+
+	// Append database context for SQL query generation if available
+	// This is injected only when user has referenced a specific datasourceID
+	if options != nil && options.DatabaseContext != "" {
+		basePrompt += "\n\n" + options.DatabaseContext
 	}
 
 	return basePrompt

@@ -50,6 +50,7 @@ type CreateKnowledgeQARequest struct {
 	EnableMemory     bool                   `json:"enable_memory"`                         // Whether memory feature is enabled for this request
 	Images           []ImageAttachment      `json:"images"`                                // Attached images for multimodal chat
 	Channel          string                 `json:"channel"`                               // Source channel: "web", "api", "im", etc.
+	DataSourceIDs    []string               `json:"data_source_ids"`                       // Selected data source IDs for AI query (sql_query tool)
 }
 
 // SearchKnowledgeRequest defines the request structure for searching knowledge without LLM summarization

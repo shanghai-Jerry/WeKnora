@@ -1411,3 +1411,383 @@ HTTP Request
           → SSE流 
             → 前端展示
 ```
+
+---
+
+## AI问数（SQL Query）功能
+
+### 概述
+
+AI问数功能扩展了AgentQA的能力，支持连接外部MySQL数据库进行数据查询。该功能通过新增`sql_query`工具实现，允许用户通过自然语言查询外部数据库。
+
+**核心特点：**
+- 只读查询：仅支持SELECT语句，确保数据安全
+- 结果限制：最多返回50条数据 + 总数
+- SQL注入防护：多层验证机制
+- 多数据库支持：预留扩展接口，支持后续添加PostgreSQL、SQLite等
+
+### 相关文件
+
+#### 核心实现文件
+
+| 文件路径 | 说明 |
+|---------|------|
+| `internal/datasource/dbconnector.go` | 数据库连接器接口定义 |
+| `internal/datasource/connector/mysql/connector.go` | MySQL连接器实现 |
+| `internal/agent/tools/sql_query.go` | SQL查询工具实现 |
+| `internal/agent/tools/definitions.go` | 工具常量定义（ToolSQLQuery） |
+
+#### 类型定义文件
+
+| 文件路径 | 说明 |
+|---------|------|
+| `internal/types/qa_request.go` | QARequest添加DataSourceIDs字段 |
+| `internal/types/agent.go` | AgentConfig添加DataSourceConfigs字段 |
+| `internal/handler/session/types.go` | CreateKnowledgeQARequest添加DataSourceIDs |
+
+#### 服务层文件
+
+| 文件路径 | 说明 |
+|---------|------|
+| `internal/application/service/agent_service.go` | 注册sql_query工具 |
+| `internal/application/service/session_agent_qa.go` | 解析数据源配置 |
+
+---
+
+### 架构设计
+
+#### 数据库连接器接口
+
+```go
+// DBConnector is the interface that all database connectors must implement
+type DBConnector interface {
+    // Type returns the database type identifier
+    Type() string
+    
+    // ValidateConnection tests the database connection
+    ValidateConnection(ctx context.Context, config map[string]interface{}) error
+    
+    // ExecuteQuery executes a read-only SQL query
+    ExecuteQuery(ctx context.Context, config map[string]interface{}, query string, maxRows int) (*QueryResult, error)
+    
+    // GetTableSchema returns schema information for all tables
+    GetTableSchema(ctx context.Context, config map[string]interface{}) ([]TableInfo, error)
+    
+    // GetTableSchemaForTable returns schema for a specific table
+    GetTableSchemaForTable(ctx context.Context, config map[string]interface{}, tableName string) (*TableInfo, error)
+}
+```
+
+#### 扩展性设计
+
+系统使用`DBConnectorRegistry`管理所有数据库连接器：
+
+```go
+// GlobalDBConnectorRegistry is the global registry for database connectors
+var GlobalDBConnectorRegistry = NewDBConnectorRegistry()
+```
+
+添加新数据库支持只需：
+1. 实现`DBConnector`接口
+2. 在`init()`函数中注册连接器
+
+示例（添加PostgreSQL支持）：
+
+```go
+// internal/datasource/connector/postgresql/connector.go
+package postgresql
+
+func init() {
+    datasource.GlobalDBConnectorRegistry.Register(NewConnector())
+}
+```
+
+---
+
+### 安全机制
+
+#### 1. 只读查询验证
+
+```go
+func validateReadOnlyQuery(query string) error {
+    // 禁止的关键词
+    forbiddenKeywords := []string{
+        "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE",
+        "TRUNCATE", "REPLACE", "RENAME", "GRANT", "REVOKE",
+    }
+    
+    // 必须以SELECT或WITH开头
+    if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
+        return fmt.Errorf("invalid query: only SELECT statements are allowed")
+    }
+}
+```
+
+#### 2. SQL注入防护
+
+```go
+func validateSQLSafety(sql string) error {
+    // 检查多语句
+    if strings.Contains(cleanSQL, ";") {
+        return fmt.Errorf("multiple statements are not allowed")
+    }
+    
+    // 检查危险函数
+    dangerousFunctions := []string{
+        "SLEEP(", "BENCHMARK(", "LOAD_FILE(", "INTO OUTFILE",
+    }
+}
+```
+
+#### 3. 结果限制
+
+- 自动添加LIMIT子句（默认50条）
+- 返回总行数供参考
+
+---
+
+### 工具参数
+
+#### sql_query 工具输入
+
+```typescript
+interface SQLQueryInput {
+    data_source_id: string;  // 数据源ID（从@选择获取）
+    sql: string;             // SELECT查询语句
+}
+```
+
+#### 工具输出格式
+
+```markdown
+=== Query Results ===
+
+Returned 10 rows (Total matching rows: 150)
+
+| id | name | created_at |
+|----|------|------------|
+| 1  | 示例 | 2024-01-01 |
+| ...| ...  | ...        |
+```
+
+---
+
+### 配置流程
+
+#### 1. 添加数据源
+
+通过数据源管理API添加MySQL连接：
+
+```json
+POST /api/v1/data_sources
+{
+    "name": "生产数据库",
+    "type": "mysql",
+    "config": {
+        "host": "localhost",
+        "port": 3306,
+        "username": "reader",
+        "password": "****",
+        "database": "mydb",
+        "charset": "utf8mb4"
+    }
+}
+```
+
+#### 2. 对话时选择数据源
+
+在聊天请求中指定数据源ID：
+
+```json
+POST /api/v1/agent-chat/:session_id
+{
+    "query": "查询用户表有多少条记录",
+    "agent_id": "agent-123",
+    "data_source_ids": ["ds-456"]
+}
+```
+
+---
+
+### 处理流程
+
+```
+用户输入查询 + @选择数据源
+    ↓
+Handler解析DataSourceIDs
+    ↓
+sessionService.AgentQA()
+    ↓
+buildAgentConfig()
+    ├─ 读取DataSourceIDs
+    └─ resolveDataSourceConfigs() 获取数据源配置
+    ↓
+[条件注入] 检查DataSourceConfigs是否非空
+    ├─ 若有数据源引用 → 获取数据库表结构信息
+    │   ├─ 调用DBConnector.GetTableSchema() 获取所有表结构
+    │   ├─ 格式化为"数据库上下文信息"（格式见下文）
+    │   └─ 注入到System Prompt末尾
+    └─ 若无数据源引用 → 跳过，进入正常流程
+    ↓
+agentService.CreateAgentEngine()
+    ↓
+registerTools()
+    ├─ 检查DataSourceConfigs
+    └─ 注册sql_query工具（仅当有数据源时注册）
+    ↓
+AgentEngine.Execute()
+    ↓
+executeLoop() (ReAct循环)
+    ├─ [Think] LLM分析问题
+    │   ├─ 若System Prompt中有数据库上下文 → LLM理解表结构，生成SQL
+    │   └─ 若无数据库上下文 → 按常规Agent流程处理
+    ├─ [Act] 调用sql_query执行查询（若有SQL）
+    │   ├─ 验证SQL（只允许SELECT）
+    │   ├─ 建立MySQL连接
+    │   ├─ 执行查询
+    │   └─ 格式化结果（Markdown表格）
+    ├─ [Observe] 获取查询结果
+    ├─ [Think] 基于结果生成答案
+    └─ [Act] 调用final_answer返回结果
+    ↓
+前端展示答案和查询结果
+```
+
+---
+
+### 条件注入逻辑
+
+**触发条件**：用户在对话中通过 `@` 选择了一个或多个数据源（`data_source_ids` 参数非空）
+
+**注入内容**：
+1. 数据库名称
+2. 可用表列表（逗号分隔）
+3. 每张表的完整 `CREATE TABLE` 语句（包含字段注释）
+4. 每张表的示例数据（前3行）
+
+**注入位置**：System Prompt 末尾追加数据库上下文区块
+
+**注入目的**：让 LLM 理解数据库结构，从而根据用户问题生成正确的 SQL 查询语句
+
+**关键原则**：
+- 仅当 `DataSourceConfigs` 非空时才触发注入，避免无数据源时浪费 token
+- 注入格式严格遵循 `AI问数.md` 中定义的数据库上下文信息格式
+- 如果数据源引用无效或获取表结构失败，降级为不注入（不影响正常流程）
+
+---
+
+### 数据库上下文注入格式
+
+当用户引用了指定的 `datasourceID` 时，系统会将该数据源对应的数据库表结构信息注入到 System Prompt 中。格式如下：
+
+```
+## 数据库信息
+- 数据库名: {database_name}
+- 可用表: table1, table2, table3, ...
+- 表结构:
+
+CREATE TABLE table_name (
+    column_name DATA_TYPE NOT NULL COMMENT 'column_comment' DEFAULT 'default_value',
+    ...
+    PRIMARY KEY (id)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='table_comment'
+
+/*
+3 rows from table_name table:
+column1	column2	column3
+value1	value2	value3
+*/
+
+其他表相关信息省略 ....
+
+- 使用 'sql_query' 工具执行 SQL 查询
+- **只允许 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE**
+```
+
+**格式说明**：
+- `数据库名`：实际连接的数据库名称
+- `可用表`：该数据源中所有可用的表名，用逗号分隔
+- `表结构`：每张表的 `CREATE TABLE` DDL 语句，包含字段类型、注释、默认值
+- `示例数据`：每张表的前3行数据，用于帮助 LLM 理解数据分布
+- 末尾的 SQL 工具使用说明，引导 LLM 使用 `sql_query` 工具
+
+---
+
+### 代码示例
+
+#### 注册新数据库连接器
+
+```go
+// internal/datasource/connector/postgresql/connector.go
+package postgresql
+
+import (
+    "context"
+    "github.com/Tencent/WeKnora/internal/datasource"
+)
+
+const ConnectorType = "postgresql"
+
+type Connector struct{}
+
+func NewConnector() *Connector {
+    return &Connector{}
+}
+
+func (c *Connector) Type() string {
+    return ConnectorType
+}
+
+func (c *Connector) ValidateConnection(ctx context.Context, config map[string]interface{}) error {
+    // 实现PostgreSQL连接验证
+}
+
+func (c *Connector) ExecuteQuery(ctx context.Context, config map[string]interface{}, query string, maxRows int) (*datasource.QueryResult, error) {
+    // 实现PostgreSQL查询执行
+}
+
+func (c *Connector) GetTableSchema(ctx context.Context, config map[string]interface{}) ([]datasource.TableInfo, error) {
+    // 实现PostgreSQL表结构获取
+}
+
+func (c *Connector) GetTableSchemaForTable(ctx context.Context, config map[string]interface{}, tableName string) (*datasource.TableInfo, error) {
+    // 实现PostgreSQL单表结构获取
+}
+
+func init() {
+    // 注册到全局连接器注册表
+    if err := datasource.GlobalDBConnectorRegistry.Register(NewConnector()); err != nil {
+        panic(err)
+    }
+}
+```
+
+---
+
+### 待完成功能
+
+#### 前端@数据源选择
+
+需要修改以下文件支持@数据源选择：
+
+1. `frontend/src/components/MentionSelector.vue` - 添加数据源分组
+2. `frontend/src/components/Input-field.vue` - 获取数据源列表
+3. `frontend/src/views/chat/index.vue` - 发送data_source_ids
+
+#### 多数据源支持
+
+当前实现使用第一个数据源，后续可扩展为：
+- 支持同时查询多个数据源
+- 支持跨数据源JOIN查询
+
+---
+
+### 与现有工具的对比
+
+| 维度 | database_query | sql_query |
+|------|---------------|-----------|
+| **查询目标** | 系统内部数据库 | 外部MySQL数据库 |
+| **数据表** | knowledge_bases, knowledges, chunks | 用户配置的外部表 |
+| **安全机制** | 自动注入tenant_id | 只读验证 + SQL注入防护 |
+| **使用场景** | 查询知识库元数据 | 查询业务数据 |
+| **扩展性** | 固定表结构 | 支持任意表结构 |

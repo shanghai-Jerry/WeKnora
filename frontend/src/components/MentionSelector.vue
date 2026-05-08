@@ -147,6 +147,29 @@
       </div>
     </div>
     
+    <!-- Data Sources Group -->
+    <div v-if="dataSourceItems.length > 0" class="mention-group">
+      <div class="mention-group-header">{{ $t('common.dataSource') || '数据源' }}</div>
+      <div
+        v-for="(item, index) in dataSourceItems"
+        :key="item.id"
+        class="mention-item"
+        :class="{ active: (kbItems.length + fileItems.length + index) === activeIndex }"
+        @click="$emit('select', item)"
+        @mouseenter="$emit('update:activeIndex', kbItems.length + fileItems.length + index)"
+      >
+        <div class="icon-wrap">
+          <div class="icon datasource-icon">
+            <t-icon name="database" />
+          </div>
+        </div>
+        <div class="item-main">
+          <span class="name">{{ item.name }}</span>
+          <span v-if="item.dbType" class="db-type">{{ item.dbType.toUpperCase() }}</span>
+        </div>
+      </div>
+    </div>
+    
     <div v-if="items.length === 0 && !loading" class="empty">
       {{ $t('common.noResult') }}
     </div>
@@ -166,7 +189,7 @@ type DetailState = { loading: boolean; error?: string; data?: any };
 const props = defineProps<{
   visible: boolean;
   style: any;
-  items: Array<{ id: string; name: string; type: 'kb' | 'file'; kbType?: 'document' | 'faq'; count?: number; kbName?: string; orgName?: string; kbId?: string }>;
+  items: Array<{ id: string; name: string; type: 'kb' | 'file' | 'datasource'; kbType?: 'document' | 'faq'; count?: number; kbName?: string; orgName?: string; kbId?: string; dbType?: string }>;
   activeIndex: number;
   hasMore?: boolean;
   loading?: boolean;
@@ -195,6 +218,7 @@ const agentIdForDetail = computed(() => {
 
 const kbItems = computed(() => props.items.filter(item => item.type === 'kb'));
 const fileItems = computed(() => props.items.filter(item => item.type === 'file'));
+const dataSourceItems = computed(() => props.items.filter(item => item.type === 'datasource'));
 
 async function fetchKbDetail(item: { id: string }) {
   if (detailCache.value[item.id]?.data || detailCache.value[item.id]?.loading) return;
@@ -391,7 +415,8 @@ const scrollToItem = (index: number) => {
 /* 知识库 / 文件 - 无背景，与整体一致 */
 .kb-icon,
 .faq-icon,
-.file-icon {
+.file-icon,
+.datasource-icon {
   background: transparent;
   color: var(--td-text-color-secondary, #666);
 }
@@ -422,10 +447,18 @@ const scrollToItem = (index: number) => {
   min-width: 0;
 }
 
-.count {
+.count,
+.db-type {
   flex-shrink: 0;
   font-size: var(--td-font-size-mark-small, 12px);
   color: var(--td-text-color-secondary, #999);
+}
+
+.db-type {
+  padding: 1px 4px;
+  background: var(--td-bg-color-secondarycontainer, #f3f3f3);
+  border-radius: 2px;
+  font-weight: 500;
 }
 
 .org-name {

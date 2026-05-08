@@ -19,6 +19,7 @@ export const useMenuStore = defineStore('menuStore', () => {
   const menuArr = reactive<MenuItem[]>([
     { title: '', titleKey: 'menu.knowledgeBase', icon: 'zhishiku', path: 'knowledge-bases' },
     { title: '', titleKey: 'menu.knowledgeSearch', icon: 'search', path: 'knowledge-search' },
+    { title: '', titleKey: 'menu.dataSource', icon: 'database', path: 'data-sources' },
     { title: '', titleKey: 'menu.agents', icon: 'agent', path: 'agents' },
     { title: '', titleKey: 'menu.organizations', icon: 'organization', path: 'organizations' },
     {

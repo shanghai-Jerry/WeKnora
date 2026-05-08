@@ -66,6 +66,25 @@ type AgentConfig struct {
 	IntentExploreQueries []string `json:"-"`
 	// Intent explore system prompt block (runtime only) - structured analysis (entities, dimensions, paths).
 	IntentExploreSystemBlock string `json:"-"`
+
+	// Data source IDs for AI query (sql_query tool) (runtime only).
+	// When set, the sql_query tool is registered with these data sources.
+	DataSourceIDs []string `json:"-"`
+	// Data source configs for AI query (runtime only).
+	// Pre-fetched data source configurations for tool execution.
+	DataSourceConfigs []AgentDataSourceConfig `json:"-"`
+	// Database context information for system prompt injection (runtime only).
+	// When set, the system prompt will include database schema information
+	// so the LLM can generate correct SQL queries.
+	DatabaseContext string `json:"-"`
+}
+
+// AgentDataSourceConfig represents a data source configuration for AI query (runtime only)
+type AgentDataSourceConfig struct {
+	ID     string                 `json:"id"`
+	Type   string                 `json:"type"`
+	Name   string                 `json:"name"`
+	Config map[string]interface{} `json:"config"`
 }
 
 // SessionAgentConfig represents session-level agent configuration
