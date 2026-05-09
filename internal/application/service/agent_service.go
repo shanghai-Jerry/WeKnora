@@ -41,6 +41,7 @@ type agentService struct {
 	duckdb                *sql.DB
 	webSearchStateService interfaces.WebSearchStateService
 	dataSourceService     interfaces.DataSourceService
+	sandboxMgr            sandbox.Manager // cached sandbox manager (lazy init)
 }
 
 // NewAgentService creates a new agent service
@@ -243,46 +244,7 @@ func (s *agentService) initializeSkillsManager(
 	config *types.AgentConfig,
 	toolRegistry *tools.ToolRegistry,
 ) (*skills.Manager, error) {
-	// Initialize sandbox manager based on environment variables
-	// WEKNORA_SANDBOX_MODE: "docker", "local", "disabled" (default: "disabled")
-	// WEKNORA_SANDBOX_TIMEOUT: timeout in seconds (default: 60)
-	// WEKNORA_SANDBOX_DOCKER_IMAGE: custom Docker image (default: wechatopenai/weknora-sandbox:latest)
-	var sandboxMgr sandbox.Manager
-	var err error
-
-	sandboxMode := os.Getenv("WEKNORA_SANDBOX_MODE")
-	if sandboxMode == "" {
-		sandboxMode = "disabled"
-	}
-	dockerImage := os.Getenv("WEKNORA_SANDBOX_DOCKER_IMAGE")
-	if dockerImage == "" {
-		dockerImage = sandbox.DefaultDockerImage
-	}
-	sandboxTimeoutStr := os.Getenv("WEKNORA_SANDBOX_TIMEOUT")
-	sandboxTimeout := 60
-	if sandboxTimeoutStr != "" {
-		if v, err := strconv.Atoi(sandboxTimeoutStr); err == nil && v > 0 {
-			sandboxTimeout = v
-		}
-	}
-
-	switch sandboxMode {
-	case "docker":
-		sandboxMgr, err = sandbox.NewManagerFromType("docker", true, dockerImage) // Enable fallback to local
-		if err != nil {
-			logger.Warnf(ctx, "Failed to initialize Docker sandbox, falling back to disabled: %v", err)
-			sandboxMgr = sandbox.NewDisabledManager()
-		}
-	case "local":
-		sandboxMgr, err = sandbox.NewManagerFromType("local", false, "")
-		if err != nil {
-			logger.Warnf(ctx, "Failed to initialize local sandbox: %v", err)
-			sandboxMgr = sandbox.NewDisabledManager()
-		}
-	default:
-		sandboxMgr = sandbox.NewDisabledManager()
-	}
-	logger.Infof(ctx, "Sandbox configured: mode=%s, timeout=%ds, image=%s", sandboxMode, sandboxTimeout, dockerImage)
+	sandboxMgr := s.getSandboxManager(ctx)
 
 	// Create skills manager
 	skillsConfig := &skills.ManagerConfig{
@@ -303,13 +265,56 @@ func (s *agentService) initializeSkillsManager(
 	toolRegistry.RegisterTool(readSkillTool)
 	logger.Infof(ctx, "Registered read_skill tool")
 
-	if sandboxMode != "disabled" {
+	if sandboxMgr.GetType() != sandbox.SandboxTypeDisabled {
 		executeSkillTool := tools.NewExecuteSkillScriptTool(skillsManager)
 		toolRegistry.RegisterTool(executeSkillTool)
 		logger.Infof(ctx, "Registered execute_skill_script tool")
 	}
 
 	return skillsManager, nil
+}
+
+// getSandboxManager returns a cached sandbox manager, initializing if needed
+func (s *agentService) getSandboxManager(ctx context.Context) sandbox.Manager {
+	if s.sandboxMgr != nil {
+		return s.sandboxMgr
+	}
+
+	sandboxMode := os.Getenv("WEKNORA_SANDBOX_MODE")
+	if sandboxMode == "" {
+		sandboxMode = "disabled"
+	}
+	dockerImage := os.Getenv("WEKNORA_SANDBOX_DOCKER_IMAGE")
+	if dockerImage == "" {
+		dockerImage = sandbox.DefaultDockerImage
+	}
+	sandboxTimeoutStr := os.Getenv("WEKNORA_SANDBOX_TIMEOUT")
+	sandboxTimeout := 60
+	if sandboxTimeoutStr != "" {
+		if v, err := strconv.Atoi(sandboxTimeoutStr); err == nil && v > 0 {
+			sandboxTimeout = v
+		}
+	}
+
+	var err error
+	switch sandboxMode {
+	case "docker":
+		s.sandboxMgr, err = sandbox.NewManagerFromType("docker", true, dockerImage)
+		if err != nil {
+			logger.Warnf(ctx, "Failed to initialize Docker sandbox, falling back to disabled: %v", err)
+			s.sandboxMgr = sandbox.NewDisabledManager()
+		}
+	case "local":
+		s.sandboxMgr, err = sandbox.NewManagerFromType("local", false, "")
+		if err != nil {
+			logger.Warnf(ctx, "Failed to initialize local sandbox: %v", err)
+			s.sandboxMgr = sandbox.NewDisabledManager()
+		}
+	default:
+		s.sandboxMgr = sandbox.NewDisabledManager()
+	}
+	logger.Infof(ctx, "Sandbox initialized: mode=%s, timeout=%ds, type=%s", sandboxMode, sandboxTimeout, s.sandboxMgr.GetType())
+	return s.sandboxMgr
 }
 
 // registerTools registers tools based on the agent configuration
@@ -430,6 +435,16 @@ func (s *agentService) registerTools(
 		case tools.ToolDataSchema:
 			toolToRegister = tools.NewDataSchemaTool(s.knowledgeService, s.chunkService.GetRepository())
 			logger.Infof(ctx, "Registered data_schema tool")
+
+		case tools.ToolCodeInterpreter:
+			sandboxMgr := s.getSandboxManager(ctx)
+			toolToRegister = tools.NewCodeInterpreterTool(sandboxMgr, sessionID)
+			logger.Infof(ctx, "Registered code_interpreter tool for session: %s, sandbox: %s", sessionID, sandboxMgr.GetType())
+
+		case tools.ToolHtmlInterpreter:
+			workDir := fmt.Sprintf("data/tmp/%s", sessionID)
+			toolToRegister = tools.NewHtmlInterpreterTool(sessionID, workDir)
+			logger.Infof(ctx, "Registered html_interpreter tool for session: %s", sessionID)
 
 		case tools.ToolSQLQuery:
 			// Register sql_query tool if data sources are configured

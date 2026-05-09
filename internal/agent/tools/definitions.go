@@ -23,6 +23,10 @@ const (
 	// Skills-related tools (only available when skills are enabled)
 	ToolExecuteSkillScript = "execute_skill_script"
 	ToolReadSkill          = "read_skill"
+
+	// Interpreter tools
+	ToolCodeInterpreter = "code_interpreter"
+	ToolHtmlInterpreter = "html_interpreter"
 )
 
 // AvailableTool defines a simple tool metadata used by settings APIs.
@@ -49,6 +53,8 @@ func AvailableToolDefinitions() []AvailableTool {
 		{Name: ToolDataSchema, Label: "查看数据元信息", Description: "获取表格文件的元信息"},
 		{Name: ToolReadSkill, Label: "读取技能", Description: "按需读取技能内容以学习专业能力"},
 		{Name: ToolExecuteSkillScript, Label: "执行技能脚本", Description: "在沙箱环境中执行技能脚本"},
+		{Name: ToolCodeInterpreter, Label: "代码执行", Description: "执行Python/JavaScript代码进行数据分析和计算"},
+		{Name: ToolHtmlInterpreter, Label: "HTML渲染", Description: "将HTML渲染为可交互的网页报告"},
 		{Name: ToolFinalAnswer, Label: "提交最终回答", Description: "提交最终回答给用户"},
 	}
 }
@@ -66,6 +72,8 @@ func DefaultAllowedTools() []string {
 		ToolDatabaseQuery,
 		ToolDataAnalysis,
 		ToolDataSchema,
+		ToolCodeInterpreter,
+		ToolHtmlInterpreter,
 		ToolFinalAnswer,
 	}
 }
