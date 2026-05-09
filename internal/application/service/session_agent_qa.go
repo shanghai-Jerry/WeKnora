@@ -316,6 +316,7 @@ func (s *sessionService) buildAgentConfig(
 
 	// Configure data sources for AI query (sql_query tool)
 	if len(req.DataSourceIDs) > 0 {
+		logger.Infof(ctx, "Agent configured with datasource(s): %v", req.DataSourceIDs)
 		agentConfig.DataSourceIDs = req.DataSourceIDs
 		// Pre-fetch data source configurations for tool execution
 		dataSourceConfigs, err := s.resolveDataSourceConfigs(ctx, req.DataSourceIDs)
@@ -331,6 +332,9 @@ func (s *sessionService) buildAgentConfig(
 			if dbContext != "" {
 				agentConfig.DatabaseContext = dbContext
 				logger.Infof(ctx, "Database context prepared for system prompt injection (%d chars)", len(dbContext))
+				if len(dbContext) > 200 {
+					logger.Infof(ctx, "Database context: %s", dbContext[:200])
+				}
 			}
 		}
 	}

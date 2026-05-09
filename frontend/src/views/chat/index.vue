@@ -458,9 +458,10 @@ const sendMsg = async (value, modelId = '', mentionedItems = [], imageFiles = []
     // Merge @mentioned KB/file IDs so retrieval uses the same targets user @mentioned (including shared KBs)
     const sidebarKbIds = useSettingsStoreInstance.settings.selectedKnowledgeBases || [];
     const sidebarFileIds = useSettingsStoreInstance.settings.selectedFiles || [];
+    const sidebarDataSourceIds = useSettingsStoreInstance.settings.selectedDataSources || [];
     const kbIdSet = new Set(sidebarKbIds);
     const fileIdSet = new Set(sidebarFileIds);
-    const dataSourceIdSet = new Set();
+    const dataSourceIdSet = new Set(sidebarDataSourceIds);
     for (const item of mentionedItems || []) {
       if (!item?.id) continue;
       if (item.type === 'kb' && !kbIdSet.has(item.id)) {
@@ -509,6 +510,11 @@ watch(error, (newError) => {
         MessagePlugin.error(newError);
         isReplying.value = false;
         loading.value = false;
+        // 标记最后一条 assistant 消息完成，确保 PipelineStagesDisplay 等组件正确隐藏 loading 状态
+        const lastAssistantMsg = messagesList.findLast((item) => item.role === 'assistant');
+        if (lastAssistantMsg && !lastAssistantMsg.is_completed) {
+            lastAssistantMsg.is_completed = true;
+        }
         // 清空当前 assistant message ID
         currentAssistantMessageId.value = '';
     }
@@ -1092,6 +1098,8 @@ const handleAgentChunk = (data) => {
                     message.content = errorMsg;
                     isReplying.value = false;
                     loading.value = false;
+                    // 标记消息完成，确保 PipelineStagesDisplay 等组件正确隐藏 loading 状态
+                    message.is_completed = true;
                     MessagePlugin.error(errorMsg);
                     console.error('[Chat Error]', errorMsg);
                 }
@@ -1101,6 +1109,8 @@ const handleAgentChunk = (data) => {
                 message.content = errorMsg;
                 isReplying.value = false;
                 loading.value = false;
+                // 标记消息完成，确保 PipelineStagesDisplay 等组件正确隐藏 loading 状态
+                message.is_completed = true;
                 MessagePlugin.error(errorMsg);
                 console.error('[Chat Error]', errorMsg);
             }
@@ -1178,6 +1188,8 @@ const handleAgentChunk = (data) => {
                 loading.value = false;
                 isReplying.value = false;
                 fullContent.value = '';
+                // 标记消息完成，确保 PipelineStagesDisplay 等组件正确隐藏 loading 状态
+                message.is_completed = true;
                 // 清空当前 assistant message ID
                 currentAssistantMessageId.value = '';
                 
@@ -1193,6 +1205,8 @@ const handleAgentChunk = (data) => {
             console.log('[Agent] Complete event received');
             loading.value = false;
             isReplying.value = false;
+            // 标记消息完成，确保 PipelineStagesDisplay 等组件正确隐藏 loading 状态
+            message.is_completed = true;
             // 将 total_duration_ms 存入事件流供 AgentStreamDisplay 使用
             if (data.data?.total_duration_ms && message.agentEventStream) {
                 message.agentEventStream.push({
@@ -1218,6 +1232,8 @@ const handleAgentChunk = (data) => {
             // Mark conversation as stopped
             isReplying.value = false;
             fullContent.value = '';
+            // 标记消息完成，确保 PipelineStagesDisplay 等组件正确隐藏 loading 状态
+            message.is_completed = true;
             break;
     }
     

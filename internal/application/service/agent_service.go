@@ -332,8 +332,10 @@ func (s *agentService) registerTools(
 		logger.Infof(ctx, "Using default allowed tools: %v", allowedTools)
 	}
 
-	// Filter out knowledge base tools if no knowledge bases or knowledge IDs are configured
-	hasKnowledge := len(config.KnowledgeBases) > 0 || len(config.KnowledgeIDs) > 0
+	// Filter out knowledge base tools if no search targets are configured
+	// Use SearchTargets (resolved at runtime) instead of config.KnowledgeBases/KnowledgeIDs
+	// to stay consistent with system prompt selection logic (prompts.go:330-342)
+	hasKnowledge := len(config.SearchTargets) > 0
 	if !hasKnowledge {
 		filteredTools := make([]string, 0)
 		kbTools := map[string]bool{

@@ -11,6 +11,7 @@ interface Settings {
   selectedKnowledgeBases: string[];  // 当前选中的知识库ID列表
   selectedFiles: string[]; // 当前选中的文件ID列表
   selectedFileKbMap: Record<string, string>; // 文件ID -> 知识库ID，用于刷新后带 kb_id 拉取共享知识库文件
+  selectedDataSources: string[]; // 当前选中的数据源ID列表（用于 AI SQL 查询）
   modelConfig: ModelConfig;  // 模型配置
   ollamaConfig: OllamaConfig;  // Ollama配置
   webSearchEnabled: boolean;  // 网络搜索是否启用
@@ -76,6 +77,7 @@ const defaultSettings: Settings = {
   selectedKnowledgeBases: [],  // 默认为空数组
   selectedFiles: [], // 默认为空数组
   selectedFileKbMap: {},  // 文件ID -> 知识库ID
+  selectedDataSources: [], // 默认为空数组
   modelConfig: {
     chatModels: [],
     embeddingModels: [],
@@ -293,6 +295,35 @@ export const useSettingsStore = defineStore("settings", {
     // 获取选中的知识库列表
     getSelectedKnowledgeBases(): string[] {
       return this.settings.selectedKnowledgeBases || [];
+    },
+    
+    // 数据源选择操作（用于 AI SQL 查询）
+    addDataSource(dataSourceId: string) {
+      if (!this.settings.selectedDataSources) this.settings.selectedDataSources = [];
+      if (!this.settings.selectedDataSources.includes(dataSourceId)) {
+        this.settings.selectedDataSources.push(dataSourceId);
+        localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+      }
+    },
+    
+    removeDataSource(dataSourceId: string) {
+      if (!this.settings.selectedDataSources) return;
+      this.settings.selectedDataSources = this.settings.selectedDataSources.filter((id: string) => id !== dataSourceId);
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+    
+    selectDataSources(dataSourceIds: string[]) {
+      this.settings.selectedDataSources = dataSourceIds;
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+    
+    clearDataSources() {
+      this.settings.selectedDataSources = [];
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+    
+    getSelectedDataSources(): string[] {
+      return this.settings.selectedDataSources || [];
     },
     
     // 启用/禁用网络搜索

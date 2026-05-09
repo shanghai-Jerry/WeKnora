@@ -169,6 +169,7 @@ const sendMsg = (value: string, modelId: string, mentionedItems: any[], imageFil
 async function createNewSession(value: string, modelId: string, mentionedItems: any[] = [], imageFiles: any[] = []) {
     const selectedKbs = settingsStore.settings.selectedKnowledgeBases || [];
     const selectedFiles = settingsStore.settings.selectedFiles || [];
+    const selectedDataSources = settingsStore.settings.selectedDataSources || [];
 
     // 构建 session 数据，包含 Agent 配置
     const sessionData: any = {};
@@ -180,6 +181,7 @@ async function createNewSession(value: string, modelId: string, mentionedItems: 
         temperature: settingsStore.agentConfig.temperature,
         knowledge_bases: selectedKbs,  // 所有选中的知识库
         knowledge_ids: selectedFiles,  // 所有选中的普通知识/文件
+        data_source_ids: selectedDataSources,  // 所有选中的数据源
         allowed_tools: settingsStore.agentConfig.allowedTools
     };
 

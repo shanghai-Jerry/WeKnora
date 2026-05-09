@@ -51,6 +51,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/datasource"
 	feishuConnector "github.com/Tencent/WeKnora/internal/datasource/connector/feishu"
+	_ "github.com/Tencent/WeKnora/internal/datasource/connector/mysql" // Register MySQL DBConnector for AI query
 	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/handler"
 	"github.com/Tencent/WeKnora/internal/handler/session"

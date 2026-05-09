@@ -8,11 +8,13 @@ import { useUIStore } from '@/stores/ui';
 import { useMenuStore } from '@/stores/menu';
 import { listKnowledgeBases, searchKnowledge, batchQueryKnowledge } from '@/api/knowledge-base';
 import { listDataSources } from '@/api/datasource';
+import { listQueryDataSources, type QueryDataSource } from '@/api/query-datasource';
 import { stopSession } from '@/api/chat';
 import { useOrganizationStore } from '@/stores/organization';
 import KnowledgeBaseSelector from './KnowledgeBaseSelector.vue';
 import MentionSelector from './MentionSelector.vue';
 import AgentSelector from './AgentSelector.vue';
+import DataSourceSelector from './DataSourceSelector.vue';
 import { getCaretCoordinates } from '@/utils/caret';
 import { listModels, type ModelConfig } from '@/api/model';
 import { listAgents, type CustomAgent, BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from '@/api/agent';
@@ -31,6 +33,12 @@ const { t } = useI18n();
 
 let query = ref("");
 const showKbSelector = ref(false);
+const showDataSourceSelector = ref(false);
+
+// Plus menu state
+const showPlusMenu = ref(false);
+const plusMenuStyle = ref<Record<string, string>>({});
+const plusMenuButtonRef = ref<HTMLElement | null>(null);
 
 // Image upload state
 const uploadedImages = ref<Array<{ file: File; preview: string }>>([]);
@@ -380,6 +388,94 @@ const removeSelectedItem = (item: { id: string; type: 'kb' | 'file'; isAgentConf
   } else {
     settingsStore.removeFile(item.id);
   }
+};
+
+// 数据源选择相关
+const selectedDataSources = computed(() => {
+  const dsIds = settingsStore.settings.selectedDataSources || [];
+  // We'll store the full data source info when selected
+  // For now, just return the IDs with placeholder names
+  return dsIds.map((id: string) => ({
+    id,
+    name: `Data Source ${id.substring(0, 8)}...`,
+    type: 'datasource' as const
+  }));
+});
+
+const removeSelectedDataSource = (id: string) => {
+  settingsStore.removeDataSource(id);
+};
+
+// Plus menu functions
+const togglePlusMenu = () => {
+  // Close other selectors
+  showMention.value = false;
+  showModelSelector.value = false;
+  showAgentModeSelector.value = false;
+  
+  showPlusMenu.value = !showPlusMenu.value;
+  if (showPlusMenu.value) {
+    nextTick(() => {
+      updatePlusMenuPosition();
+    });
+  }
+};
+
+const closePlusMenu = () => {
+  showPlusMenu.value = false;
+};
+
+const updatePlusMenuPosition = () => {
+  // Find the plus button
+  const plusBtn = document.querySelector('.plus-btn');
+  if (!plusBtn) return;
+  
+  const rect = plusBtn.getBoundingClientRect();
+  const dropdownWidth = 200;
+  const offsetY = 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  
+  let left = Math.floor(rect.left);
+  const minLeft = 16;
+  const maxLeft = Math.max(16, vw - dropdownWidth - 16);
+  left = Math.max(minLeft, Math.min(maxLeft, left));
+  
+  const spaceBelow = vh - rect.bottom;
+  const spaceAbove = rect.top;
+  
+  if (spaceBelow > spaceAbove && spaceBelow > 150) {
+    // Open below
+    plusMenuStyle.value = {
+      position: 'fixed',
+      width: `${dropdownWidth}px`,
+      left: `${left}px`,
+      top: `${rect.bottom + offsetY}px`,
+    };
+  } else {
+    // Open above
+    plusMenuStyle.value = {
+      position: 'fixed',
+      width: `${dropdownWidth}px`,
+      left: `${left}px`,
+      bottom: `${vh - rect.top + offsetY}px`,
+    };
+  }
+};
+
+const handleUploadFile = () => {
+  closePlusMenu();
+  triggerImageUpload();
+};
+
+const handleSelectDataSource = () => {
+  closePlusMenu();
+  showDataSourceSelector.value = true;
+};
+
+const handleSelectKnowledgeBase = () => {
+  closePlusMenu();
+  triggerMention();
 };
 
 // 模型相关状态
@@ -1885,8 +1981,8 @@ defineExpose({
           <span class="image-preview-remove" @click="removeImage(idx)">×</span>
         </div>
       </div>
-        <!-- 选中的知识库和文件标签（显示在输入框内顶部） -->
-      <div v-if="allSelectedItems.length > 0" class="selected-tags-inline">
+        <!-- 选中的知识库、文件和数据源标签（显示在输入框内顶部） -->
+      <div v-if="allSelectedItems.length > 0 || selectedDataSources.length > 0" class="selected-tags-inline">
         <span 
           v-for="item in allSelectedItems" 
           :key="item.id" 
@@ -1907,6 +2003,24 @@ defineExpose({
           </span>
           <span class="mention-chip__name" :title="item.name">{{ item.name }}</span>
           <span class="mention-chip__remove" @click.stop="removeSelectedItem(item)" :aria-label="$t('common.remove')">×</span>
+        </span>
+        <!-- 数据源标签 -->
+        <span 
+          v-for="ds in selectedDataSources" 
+          :key="ds.id" 
+          class="mention-chip mention-chip--datasource"
+        >
+          <span class="mention-chip__icon-wrap">
+            <span class="mention-chip__icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <ellipse cx="12" cy="6" rx="8" ry="3" stroke="currentColor" stroke-width="2"/>
+                <path d="M4 6V12C4 13.6569 7.58172 15 12 15C16.4183 15 20 13.6569 20 12V6" stroke="currentColor" stroke-width="2"/>
+                <path d="M4 12V18C4 19.6569 7.58172 21 12 21C16.4183 21 20 19.6569 20 18V12" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </span>
+          </span>
+          <span class="mention-chip__name" :title="ds.name">{{ ds.name }}</span>
+          <span class="mention-chip__remove" @click.stop="removeSelectedDataSource(ds.id)" :aria-label="$t('common.remove')">×</span>
         </span>
       </div>
       
@@ -1943,6 +2057,45 @@ defineExpose({
     <div class="control-bar">
       <!-- 左侧控制按钮 -->
       <div class="control-left">
+        <!-- "+" 菜单按钮 -->
+        <div class="plus-menu-wrapper">
+          <div class="control-btn plus-btn" @click.stop="togglePlusMenu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="control-icon">
+              <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <!-- "+" 下拉菜单 -->
+          <Teleport to="body">
+            <div v-if="showPlusMenu" class="plus-menu-overlay" @click="closePlusMenu">
+              <div class="plus-menu-dropdown" :style="plusMenuStyle" @click.stop>
+                <div class="plus-menu-item" @click="handleUploadFile">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Upload File</span>
+                </div>
+                <div class="plus-menu-divider"></div>
+                <div class="plus-menu-item" @click="handleSelectDataSource">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <ellipse cx="12" cy="6" rx="8" ry="3" stroke="currentColor" stroke-width="2"/>
+                    <path d="M4 6V12C4 13.6569 7.58172 15 12 15C16.4183 15 20 13.6569 20 12V6" stroke="currentColor" stroke-width="2"/>
+                    <path d="M4 12V18C4 19.6569 7.58172 21 12 21C16.4183 21 20 19.6569 20 18V12" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  <span>Select Data Source</span>
+                </div>
+                <div class="plus-menu-divider"></div>
+                <div class="plus-menu-item" @click="handleSelectKnowledgeBase">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Select Knowledge Base</span>
+                </div>
+              </div>
+            </div>
+          </Teleport>
+        </div>
+
         <!-- Agent 模式切换按钮 -->
         <div 
           ref="agentModeButtonRef"
@@ -2172,6 +2325,12 @@ defineExpose({
       @close="showKbSelector = false"
     />
     </Teleport>
+    
+    <!-- 数据源选择模态框 -->
+    <DataSourceSelector
+      v-model:visible="showDataSourceSelector"
+      @close="showDataSourceSelector = false"
+    />
   </div>
 </template>
 <script lang="ts">
@@ -2367,6 +2526,92 @@ const getImgSrc = (url: string) => {
 
 .mention-chip--agent.mention-chip--faq {
   border-color: rgba(107, 114, 228, 0.4);
+}
+
+/* 数据源：蓝/靛色调 */
+.mention-chip--datasource {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: var(--td-text-color-primary, #1f2937);
+}
+
+.mention-chip--datasource .mention-chip__icon-wrap {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.mention-chip--datasource:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* Plus 菜单样式 */
+.plus-menu-wrapper {
+  position: relative;
+}
+
+.plus-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  min-width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+  color: var(--td-text-color-secondary, #666);
+  border: 1px solid var(--td-component-border, #e7e7e7);
+
+  &:hover {
+    background: var(--td-bg-color-secondarycontainer, #f5f5f5);
+    color: var(--td-text-color-primary, #333);
+  }
+}
+
+.plus-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+}
+
+.plus-menu-dropdown {
+  position: fixed !important;
+  z-index: 9999;
+  background: var(--td-bg-color-container, #fff);
+  border-radius: 10px;
+  box-shadow: var(--td-shadow-2, 0 6px 28px rgba(15, 23, 42, 0.08));
+  border: .5px solid var(--td-component-border, #e7e9eb);
+  overflow: hidden;
+  padding: 6px 0;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.plus-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-size: 13px;
+  color: var(--td-text-color-primary, #1f2937);
+
+  &:hover {
+    background: var(--td-bg-color-secondarycontainer, #f5f5f5);
+  }
+
+  svg {
+    color: var(--td-text-color-secondary, #666);
+  }
+}
+
+.plus-menu-divider {
+  height: 1px;
+  background: var(--td-component-stroke, #e7e7e7);
+  margin: 4px 0;
 }
 
 :deep(.t-textarea__inner) {
