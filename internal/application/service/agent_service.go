@@ -301,8 +301,10 @@ func (s *agentService) getSandboxManager(ctx context.Context) sandbox.Manager {
 	case "docker":
 		s.sandboxMgr, err = sandbox.NewManagerFromType("docker", true, dockerImage)
 		if err != nil {
-			logger.Warnf(ctx, "Failed to initialize Docker sandbox, falling back to disabled: %v", err)
+			logger.Errorf(ctx, "Failed to initialize Docker sandbox (image: %s): %v. Ensure /var/run/docker.sock is mounted. Falling back to disabled.", dockerImage, err)
 			s.sandboxMgr = sandbox.NewDisabledManager()
+		} else if s.sandboxMgr.GetType() != sandbox.SandboxTypeDocker {
+			logger.Warnf(ctx, "Requested Docker sandbox but got %s — Docker may not be available", s.sandboxMgr.GetType())
 		}
 	case "local":
 		s.sandboxMgr, err = sandbox.NewManagerFromType("local", false, "")
@@ -442,7 +444,14 @@ func (s *agentService) registerTools(
 			logger.Infof(ctx, "Registered code_interpreter tool for session: %s, sandbox: %s", sessionID, sandboxMgr.GetType())
 
 		case tools.ToolHtmlInterpreter:
-			workDir := fmt.Sprintf("data/tmp/%s", sessionID)
+			sandboxBase := os.Getenv("WEKNORA_SANDBOX_WORKSPACE")
+			if sandboxBase == "" {
+				sandboxBase = "/data/sandbox"
+			}
+			workDir := fmt.Sprintf("%s/%s", sandboxBase, sessionID)
+			if err := os.MkdirAll(workDir, 0755); err != nil {
+				workDir = fmt.Sprintf("data/tmp/%s", sessionID)
+			}
 			toolToRegister = tools.NewHtmlInterpreterTool(sessionID, workDir)
 			logger.Infof(ctx, "Registered html_interpreter tool for session: %s", sessionID)
 

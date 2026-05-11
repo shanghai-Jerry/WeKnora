@@ -66,6 +66,8 @@ services:
       - ./config/config.yaml:/app/config/config.yaml
       # Optional: mount custom skills directory (allows adding skills without rebuilding image)
       - ./skills/preloaded:/app/skills/preloaded
+      # Required for Docker sandbox: lets the app container run `docker run` for sandboxed code execution
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

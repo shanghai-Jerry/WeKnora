@@ -18,6 +18,7 @@ fi
 # 设置默认Docker标签,默认使用latest
 DOCKER_TAG="${WEKNORA_APP_VERSION:-latest}"
 DOCKER_TAG_FRONTEND="${WEKNORA_FRONTEND_VERSION:-latest}"
+DOCKER_TAG_SANDBOX="${WEKNORA_SANDBOX_VERSION:-latest}"
 # 版本信息
 VERSION="1.0.0"
 SCRIPT_NAME=$(basename "$0")
@@ -230,7 +231,7 @@ build_sandbox_image() {
     docker build \
         --platform $PLATFORM \
         -f docker/Dockerfile.sandbox \
-        -t wechatopenai/weknora-sandbox:latest \
+        -t wechatopenai/weknora-sandbox:$DOCKER_TAG_SANDBOX \
         .
 
     if [ $? -eq 0 ]; then

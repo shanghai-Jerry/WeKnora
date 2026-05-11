@@ -3247,6 +3247,9 @@ export default {
       emptyContent: "当前回答为空，无法保存到知识库",
       editorOpened: "已打开编辑器，请选择知识库后保存",
     },
+    htmlReport: {
+      defaultTitle: "HTML 报告",
+    },
   },
   agentEditor: {
     builtinHint: "这是内置智能体，名称和描述不可修改，但可以调整配置参数",
@@ -3364,6 +3367,10 @@ export default {
       dataAnalysisDesc: "理解数据文件并进行数据分析",
       dataSchema: "查看数据元信息",
       dataSchemaDesc: "获取表格文件的元信息",
+      codeInterpreter: "代码解析器",
+      codeInterpreterDesc: "执行 Python 代码进行计算和分析",
+      htmlInterpreter: "HTML 解析器",
+      htmlInterpreterDesc: "渲染 HTML 内容并截图",
       requiresKb: "（需要配置知识库）",
     },
     mcp: {

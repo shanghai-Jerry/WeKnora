@@ -207,7 +207,7 @@
             v-if="event.content && event.content.trim()"
             class="answer-content markdown-content"
           >
-               <div v-for="(token, idx) in getTokens(event.content)" :key="idx" v-html="getTokenHTML(token)"></div>
+            <div v-for="(token, idx) in getTokens(event.content)" :key="idx" v-html="getTokenHTML(token)"></div>
           </div>
           <div v-if="event.done" class="answer-toolbar">
             <t-button size="small" variant="outline" shape="round" @click.stop="handleCopyAnswer(event)" :title="$t('agent.copy')">
@@ -221,6 +221,19 @@
                 <t-icon name="info-circle" />
               </t-button>
             </t-tooltip>
+          </div>
+          <!-- HTML Report collapsible card below the reply -->
+          <div v-if="htmlReportData" class="html-report-card">
+            <div class="html-report-card-header" @click="htmlReportExpanded = !htmlReportExpanded">
+              <div class="html-report-card-title">
+                <t-icon name="file" />
+                <span>{{ htmlReportData.title || $t('agentStream.htmlReport.defaultTitle') }}</span>
+              </div>
+              <t-icon :name="htmlReportExpanded ? 'chevron-up' : 'chevron-down'" />
+            </div>
+            <div v-if="htmlReportExpanded" class="html-report-card-body">
+              <HtmlReport :data="htmlReportData" />
+            </div>
           </div>
         </div>
 
@@ -343,6 +356,7 @@ import { useRouter } from 'vue-router';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import ToolResultRenderer from './ToolResultRenderer.vue';
+import HtmlReport from './tool-results/HtmlReport.vue';
 import picturePreview from '@/components/picture-preview.vue';
 import { getChunkByIdOnly } from '@/api/knowledge-base';
 import { MessagePlugin } from 'tdesign-vue-next';
@@ -589,6 +603,34 @@ marked.use({});
 
 // Event stream
 const eventStream = computed(() => props.session?.agentEventStream || []);
+
+// Find HTML report from html_interpreter tool in the event stream
+const htmlReportData = computed(() => {
+  const stream = eventStream.value;
+  if (!stream || !Array.isArray(stream)) return null;
+
+  // Find the last successful html_interpreter tool call
+  for (let i = stream.length - 1; i >= 0; i--) {
+    const event = stream[i];
+    if (event.type === 'tool_call' &&
+        event.tool_name === 'html_interpreter' &&
+        event.success === true &&
+        event.display_type === 'html' &&
+        event.tool_data) {
+      return {
+        display_type: 'html' as const,
+        output_type: 'html' as const,
+        title: event.tool_data.title || 'HTML Report',
+        html_content: event.tool_data.html_content || event.output || ''
+      };
+    }
+  }
+
+  return null;
+});
+
+// HTML report card expand state (default collapsed)
+const htmlReportExpanded = ref(false);
 
 // Expanded events tracking (for tool calls and thinking events)
 const expandedEvents = ref<Set<string>>(new Set());
@@ -2219,6 +2261,53 @@ const handleAddToKnowledge = (answerEvent: any) => {
 
   .answer-toolbar {
     margin-top: 10px;
+  }
+}
+
+// HTML Report collapsible card
+.html-report-card {
+  margin-top: 12px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--td-bg-color-container);
+
+  .html-report-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(7, 192, 95, 0.04);
+    }
+
+    .html-report-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--td-text-color-primary);
+
+      .t-icon {
+        color: var(--td-brand-color);
+        font-size: 16px;
+      }
+    }
+
+    > .t-icon {
+      color: var(--td-text-color-placeholder);
+      font-size: 14px;
+    }
+  }
+
+  .html-report-card-body {
+    border-top: 1px solid var(--td-component-stroke);
+    padding: 0;
   }
 }
 

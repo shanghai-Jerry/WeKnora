@@ -18,6 +18,8 @@ export const toolIcons: Record<string, string> = {
     query_knowledge_graph: '🕸️',
     think: '💭',
     todo_write: '📋',
+    code_interpreter: '💻',
+    html_interpreter: '🌐',
 };
 
 // Match type internal keys for icon mapping
@@ -64,6 +66,8 @@ const toolDisplayNameKeys: Record<string, string> = {
     query_knowledge_graph: 'tools.queryKnowledgeGraph',
     think: 'tools.think',
     todo_write: 'tools.todoWrite',
+    code_interpreter: 'tools.codeInterpreter',
+    html_interpreter: 'tools.htmlInterpreter',
 };
 
 // Get tool display name (user-friendly, localized)

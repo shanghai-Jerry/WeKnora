@@ -3,6 +3,7 @@ package datasource
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // QueryResult represents the result of a database query
@@ -68,6 +69,11 @@ type DBConnector interface {
 	// GetSampleData returns sample rows from a table (used for context injection)
 	// Returns the column names and up to maxRows rows of data
 	GetSampleData(ctx context.Context, config map[string]interface{}, tableName string, maxRows int) ([]string, []map[string]interface{}, error)
+
+	// GetDatabaseContext returns a formatted database context string for LLM prompt injection.
+	// It fetches schema, DDL, and sample data using a single database connection for efficiency.
+	// The output format should match the AI问数.md specification.
+	GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int) (string, error)
 }
 
 // DBConnectorRegistry manages the registration and lookup of available database connectors
@@ -110,6 +116,36 @@ func (r *DBConnectorRegistry) List() []string {
 		types = append(types, t)
 	}
 	return types
+}
+
+// FormatFallbackCreateTable creates a simple CREATE TABLE statement from TableInfo.
+// This is used as a fallback when GetCreateTableSQL fails.
+func FormatFallbackCreateTable(table TableInfo) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", table.Name))
+	for i, col := range table.Columns {
+		nullable := "NOT NULL"
+		if col.Nullable {
+			nullable = "NULL"
+		}
+		primaryKey := ""
+		if col.IsPrimaryKey {
+			primaryKey = " PRIMARY KEY"
+		}
+		comment := ""
+		if col.Description != "" {
+			comment = fmt.Sprintf(" COMMENT '%s'", col.Description)
+		}
+
+		comma := ","
+		if i == len(table.Columns)-1 {
+			comma = ""
+		}
+		sb.WriteString(fmt.Sprintf("\t%s %s%s%s%s%s\n",
+			col.Name, col.Type, nullable, primaryKey, comment, comma))
+	}
+	sb.WriteString(")ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+	return sb.String()
 }
 
 // GlobalDBConnectorRegistry is the global registry for database connectors

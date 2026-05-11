@@ -528,6 +528,36 @@ func SanitizeForDisplay(input string) string {
 	return escaped
 }
 
+// StripSQLComments removes SQL comments (both -- line comments and /* */ block comments)
+func StripSQLComments(sql string) string {
+	// Remove block comments /* ... */
+	for {
+		start := strings.Index(sql, "/*")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(sql[start+2:], "*/")
+		if end == -1 {
+			// Unclosed block comment: remove from start to end
+			sql = sql[:start]
+			break
+		}
+		sql = sql[:start] + " " + sql[start+2+end+2:]
+	}
+
+	// Remove line comments -- ... and # ...
+	lines := strings.Split(sql, "\n")
+	for i, line := range lines {
+		if idx := strings.Index(line, "--"); idx != -1 {
+			lines[i] = line[:idx]
+		} else if idx := strings.Index(line, "#"); idx != -1 {
+			lines[i] = line[:idx]
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // SanitizeForLog 清理日志输入,防止日志注入攻击
 // 日志注入攻击是指攻击者通过在输入中插入换行符和其他控制字符,
 // 伪造日志条目,可能导致日志分析工具误判或隐藏恶意活动

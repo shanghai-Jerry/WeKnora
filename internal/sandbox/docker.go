@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/logger"
 )
 
 // DockerSandbox implements the Sandbox interface using Docker containers
@@ -36,7 +38,10 @@ func (s *DockerSandbox) Type() SandboxType {
 // IsAvailable checks if Docker is available
 func (s *DockerSandbox) IsAvailable(ctx context.Context) bool {
 	cmd := exec.CommandContext(ctx, "docker", "version")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
+		logger.Warnf(ctx, "[sandbox] Docker not available: %v (stderr: %s)", err, stderr.String())
 		return false
 	}
 	return true
@@ -144,12 +149,19 @@ func (s *DockerSandbox) buildDockerArgs(config *ExecuteConfig) []string {
 	args = append(args, "--pids-limit", "100")
 	args = append(args, "--security-opt", "no-new-privileges")
 
-	// Mount the script and working directory as read-only
-	scriptDir := filepath.Dir(config.Script)
-	args = append(args, "-v", fmt.Sprintf("%s:/workspace:ro", scriptDir))
-
-	// Working directory
-	args = append(args, "-w", "/workspace")
+	if config.SharedVolume != "" {
+		// Docker-in-Docker: mount the shared named volume so sandbox can access scripts written by the app container
+		args = append(args, "-v", fmt.Sprintf("%s:/workspace:ro", config.SharedVolume))
+		args = append(args, "-w", "/workspace")
+		// Rewrite script path to be relative to /workspace (the volume mount point)
+		scriptBase := filepath.Base(config.Script)
+		config.Script = filepath.Join("/workspace", scriptBase)
+	} else {
+		// Local Docker: bind mount the script directory
+		scriptDir := filepath.Dir(config.Script)
+		args = append(args, "-v", fmt.Sprintf("%s:/workspace:ro", scriptDir))
+		args = append(args, "-w", "/workspace")
+	}
 
 	// Environment variables
 	for key, value := range config.Env {

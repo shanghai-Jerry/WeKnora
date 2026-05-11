@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"sync"
+
+	"github.com/Tencent/WeKnora/internal/logger"
 )
 
 // DefaultManager implements the Manager interface
@@ -31,6 +33,8 @@ func NewManager(config *Config) (Manager, error) {
 		config:    config,
 		validator: NewScriptValidator(),
 	}
+
+	logger.Infof(context.Background(), "[sandbox] config: %v", manager.config.DockerImage)
 
 	// Initialize the appropriate sandbox
 	if err := manager.initializeSandbox(context.Background()); err != nil {
@@ -64,6 +68,7 @@ func (m *DefaultManager) initializeSandbox(ctx context.Context) error {
 
 		// Fallback to local if enabled
 		if m.config.FallbackEnabled {
+			logger.Warnf(ctx, "[sandbox] Docker not available, fallback to local sandbox")
 			m.sandbox = NewLocalSandbox(m.config)
 			return nil
 		}

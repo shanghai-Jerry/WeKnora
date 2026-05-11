@@ -1341,6 +1341,8 @@ const allTools = computed(() => [
   { value: 'sql_query', label: t('agentEditor.tools.sqlQuery') || 'SQL查询', description: t('agentEditor.tools.sqlQueryDesc') || '查询外部数据库（MySQL等）', requiresKB: false },
   { value: 'data_analysis', label: t('agentEditor.tools.dataAnalysis'), description: t('agentEditor.tools.dataAnalysisDesc'), requiresKB: true },
   { value: 'data_schema', label: t('agentEditor.tools.dataSchema'), description: t('agentEditor.tools.dataSchemaDesc'), requiresKB: true },
+  { value: 'code_interpreter', label: t('agentEditor.tools.codeInterpreter') || '代码解析器', description: t('agentEditor.tools.codeInterpreterDesc') || '执行Python代码进行计算和分析', requiresKB: false },
+  { value: 'html_interpreter', label: t('agentEditor.tools.htmlInterpreter') || 'HTML解析器', description: t('agentEditor.tools.htmlInterpreterDesc') || '渲染HTML内容并截图', requiresKB: false },
 ]);
 
 // 知识库分组：我的 vs 共享的

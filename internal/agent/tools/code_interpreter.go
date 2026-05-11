@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	maxStdoutLength    = 2000
-	executionTimeout   = 60 * time.Second
-	pythonPreambleFmt  = `import json
+	maxStdoutLength   = 2000
+	executionTimeout  = 60 * time.Second
+	pythonPreambleFmt = `import json
 import os
 import pandas as pd
 import numpy as np
@@ -85,7 +85,6 @@ func NewCodeInterpreterTool(sandboxMgr sandbox.Manager, sessionID string) *CodeI
 // Execute runs the provided code in the sandbox
 func (t *CodeInterpreterTool) Execute(ctx context.Context, args json.RawMessage) (*types.ToolResult, error) {
 	logger.Infof(ctx, "[Tool][CodeInterpreter] Execute started")
-
 	var input CodeInterpreterInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		logger.Errorf(ctx, "[Tool][CodeInterpreter] Failed to parse args: %v", err)
@@ -124,14 +123,35 @@ func (t *CodeInterpreterTool) Execute(ctx context.Context, args json.RawMessage)
 		}, nil
 	}
 
-	workDir := filepath.Join("data", "tmp", t.sessionID)
+	// Use /data/sandbox as base when available (shared Docker volume for sandbox execution),
+	// otherwise fall back to relative path for local development.
+	sandboxBase := os.Getenv("WEKNORA_SANDBOX_WORKSPACE")
+	if sandboxBase == "" {
+		sandboxBase = "/data/sandbox"
+	}
+	workDir := filepath.Join(sandboxBase, t.sessionID)
 	if err := os.MkdirAll(workDir, 0755); err != nil {
-		logger.Errorf(ctx, "[Tool][CodeInterpreter] Failed to create work dir: %v", err)
+		// Fallback to relative path if shared volume is not available
+		workDir = filepath.Join("data", "tmp", t.sessionID)
+		if err := os.MkdirAll(workDir, 0755); err != nil {
+			logger.Errorf(ctx, "[Tool][CodeInterpreter] Failed to create work dir: %v", err)
+			return &types.ToolResult{
+				Success: false,
+				Error:   fmt.Sprintf("Failed to create working directory: %v", err),
+			}, nil
+		}
+	}
+
+	// Convert to absolute path (sandbox requires absolute paths)
+	absWorkDir, absErr := filepath.Abs(workDir)
+	if absErr != nil {
 		return &types.ToolResult{
 			Success: false,
-			Error:   fmt.Sprintf("Failed to create working directory: %v", err),
+			Error:   fmt.Sprintf("Failed to resolve absolute path: %v", absErr),
 		}, nil
 	}
+	workDir = absWorkDir
+	logger.Infof(ctx, "[Tool][CodeInterpreter] workDir: %s", workDir)
 
 	existingImages := scanImages(workDir)
 
@@ -165,12 +185,24 @@ func (t *CodeInterpreterTool) Execute(ctx context.Context, args json.RawMessage)
 
 	logger.Infof(ctx, "[Tool][CodeInterpreter] Executing %s code (%d bytes)", lang, len(fullCode))
 
+	// Determine if we need a shared Docker volume (for Docker-in-Docker scenario)
+	sharedVolume := ""
+	if sandboxBase := os.Getenv("WEKNORA_SANDBOX_WORKSPACE"); sandboxBase != "" && sandboxBase != "data/tmp" {
+		sharedVolume = "sandbox-workspace"
+	} else if sandboxBase == "" {
+		// Default shared volume name when using default /data/sandbox path
+		if workDir != "" && len(workDir) > 12 && workDir[:12] == "/data/sandbox" {
+			sharedVolume = "sandbox-workspace"
+		}
+	}
+
 	result, err := t.sandboxMgr.Execute(ctx, &sandbox.ExecuteConfig{
-		Script:          scriptPath,
-		WorkDir:         workDir,
-		Timeout:         executionTimeout,
-		SkipValidation:  true,
-		AllowedCmds:     []string{interpreter, "python", "python3", "node", "bash", "sh", "cat", "ls", "echo", "mkdir"},
+		Script:         scriptPath,
+		WorkDir:        workDir,
+		Timeout:        executionTimeout,
+		SkipValidation: true,
+		SharedVolume:   sharedVolume,
+		AllowedCmds:    []string{interpreter, "python", "python3", "node", "bash", "sh", "cat", "ls", "echo", "mkdir"},
 	})
 	if err != nil {
 		logger.Errorf(ctx, "[Tool][CodeInterpreter] Execution failed: %v", err)
@@ -251,12 +283,16 @@ func (t *CodeInterpreterTool) Execute(ctx context.Context, args json.RawMessage)
 		"images":      newImages,
 		"work_dir":    workDir,
 	}
-
+	output := outputBuilder.String()
 	logger.Infof(ctx, "[Tool][CodeInterpreter] Completed with exit code: %d, images: %d", result.ExitCode, len(newImages))
+
+	if result.ExitCode != 0 {
+		logger.Errorf(ctx, "[Tool][CodeInterpreter] Code exited with non-zero exit code: %d, error: %s", result.ExitCode, output)
+	}
 
 	return &types.ToolResult{
 		Success: success,
-		Output:  outputBuilder.String(),
+		Output:  output,
 		Data:    resultData,
 		Error: func() string {
 			if !success {

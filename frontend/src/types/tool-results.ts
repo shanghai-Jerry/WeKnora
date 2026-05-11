@@ -20,7 +20,8 @@ export type DisplayType =
     | 'database_query'
     | 'web_search_results'
     | 'web_fetch_results'
-    | 'grep_results';
+    | 'grep_results'
+    | 'html_report';
 
 // Search result item
 export interface SearchResultItem {
@@ -220,6 +221,14 @@ export interface GrepResultsData {
     max_results: number;
 }
 
+// HTML report data (from html_interpreter tool)
+export interface HtmlReportData {
+    display_type: 'html';
+    output_type: 'html';
+    title: string;
+    html_content: string;
+}
+
 // Union type for all tool result data
 export type ToolResultData =
     | SearchResultsData
@@ -233,7 +242,8 @@ export type ToolResultData =
     | DatabaseQueryData
     | WebSearchResultsData
     | WebFetchResultsData
-    | GrepResultsData;
+    | GrepResultsData
+    | HtmlReportData;
 
 // Action data (from index.vue)
 export interface ActionData {

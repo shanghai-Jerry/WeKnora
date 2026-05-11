@@ -72,7 +72,14 @@
       v-else-if="displayType === 'grep_results'"
       :data="toolData as GrepResultsData"
     />
-    
+
+    <!-- HTML Report Display -->
+    <HtmlReport
+      v-else-if="displayType === 'html_report'"
+      :data="toolData as HtmlReportData"
+      :output="output"
+    />
+
     <!-- Fallback: Display raw output -->
     <div v-else class="fallback-output">
       <div class="fallback-header">
@@ -87,7 +94,7 @@
 
 <script setup lang="ts">
 import { defineProps, computed } from 'vue';
-import type { 
+import type {
   DisplayType,
   SearchResultsData,
   ChunkDetailData,
@@ -100,7 +107,8 @@ import type {
   DatabaseQueryData,
   WebSearchResultsData,
   WebFetchResultsData,
-  GrepResultsData
+  GrepResultsData,
+  HtmlReportData
 } from '@/types/tool-results';
 
 import SearchResults from './tool-results/SearchResults.vue';
@@ -115,6 +123,7 @@ import DatabaseQuery from './tool-results/DatabaseQuery.vue';
 import WebSearchResults from './tool-results/WebSearchResults.vue';
 import WebFetchResults from './tool-results/WebFetchResults.vue';
 import GrepResults from './tool-results/GrepResults.vue';
+import HtmlReport from './tool-results/HtmlReport.vue';
 
 interface Props {
   displayType?: DisplayType;

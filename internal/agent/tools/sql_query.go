@@ -20,7 +20,7 @@ const (
 // SQLQueryInput represents the input parameters for the SQL query tool
 type SQLQueryInput struct {
 	DataSourceID string `json:"data_source_id" jsonschema:"The ID of the data source to query. Get this from the @ data source selection."`
-	SQL          string `json:"sql" jsonschema:"The SELECT SQL query to execute. Only SELECT statements are allowed. Do not include INSERT, UPDATE, DELETE, or other modification statements."`
+	SQL          string `json:"sql" jsonschema:"The SQL query to execute. SELECT, DESCRIBE, and SHOW statements are allowed. Do not include INSERT, UPDATE, DELETE, or other modification statements."`
 }
 
 // SQLQueryTool allows AI to query external databases with read-only access
@@ -70,13 +70,15 @@ func buildSQLQueryDescription(dbType, dsID string) string {
 	return fmt.Sprintf(`Execute SQL queries on external %s database to retrieve data.
 
 ## Security Features
-- Read-only queries: Only SELECT statements are allowed (no INSERT, UPDATE, DELETE, DROP, etc.)
+- Read-only queries: Only SELECT, DESCRIBE, and SHOW statements are allowed (no INSERT, UPDATE, DELETE, DROP, etc.)
 - Result limiting: Returns maximum 50 rows with total count
 - SQL injection prevention: Queries are validated and parameterized
 - Connection isolation: Each query creates a new connection
 
 ## Available Operations
 - Query data from tables
+- Describe table structure (DESCRIBE table_name)
+- Show database metadata (SHOW TABLES, SHOW CREATE TABLE, etc.)
 - Join multiple tables
 - Aggregate data with GROUP BY
 - Filter with WHERE clauses
@@ -84,7 +86,7 @@ func buildSQLQueryDescription(dbType, dsID string) string {
 
 ## Usage
 - data_source_id: "%s"
-- sql: A valid SELECT SQL query
+- sql: A valid SELECT, DESCRIBE, or SHOW SQL query
 
 ## Result Format
 Results are returned in Markdown table format with:
@@ -197,7 +199,7 @@ func (t *SQLQueryTool) Execute(ctx context.Context, args json.RawMessage) (*type
 		}, err
 	}
 
-	logger.Infof(ctx, "[Tool][SQLQuery] Executing query on data source %s: %s", dataSourceID, input.SQL)
+	logger.Debugf(ctx, "[Tool][SQLQuery] Executing query on data source 【%s】 with query: %s", dataSourceID, input.SQL)
 
 	// Get the database connector
 	connector, err := datasource.GlobalDBConnectorRegistry.Get(t.dataSourceType)
@@ -244,28 +246,30 @@ func (t *SQLQueryTool) GetSchemaInfo() string {
 
 // validateSQLSafety performs additional safety checks on the SQL query
 func validateSQLSafety(sql string) error {
-	// Convert to uppercase for checking
-	upperSQL := strings.ToUpper(strings.TrimSpace(sql))
-
-	// Check for multiple statements (semicolons)
-	// Remove the trailing semicolon if present
-	cleanSQL := strings.TrimRight(strings.TrimSpace(sql), ";")
-	if strings.Contains(cleanSQL, ";") {
-		return fmt.Errorf("multiple statements are not allowed")
-	}
-
 	// Check for comment patterns that could be used for injection
+	upperSQL := strings.ToUpper(strings.TrimSpace(sql))
 	if strings.Contains(upperSQL, "/*") || strings.Contains(upperSQL, "*/") {
 		return fmt.Errorf("block comments are not allowed")
 	}
 
+	// Strip line comments before further checks to avoid false positives
+	stripped := utils.StripSQLComments(sql)
+
+	// Check for multiple statements (semicolons)
+	// Remove the trailing semicolon if present
+	cleanSQL := strings.TrimRight(strings.TrimSpace(stripped), ";")
+	if strings.Contains(cleanSQL, ";") {
+		return fmt.Errorf("multiple statements are not allowed")
+	}
+
 	// Check for dangerous functions
+	upperStripped := strings.ToUpper(stripped)
 	dangerousFunctions := []string{
 		"SLEEP(", "BENCHMARK(", "LOAD_FILE(", "INTO OUTFILE",
 		"INTO DUMPFILE", "LOAD DATA",
 	}
 	for _, fn := range dangerousFunctions {
-		if strings.Contains(upperSQL, fn) {
+		if strings.Contains(upperStripped, fn) {
 			return fmt.Errorf("forbidden function or operation: %s", fn)
 		}
 	}

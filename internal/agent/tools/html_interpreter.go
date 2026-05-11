@@ -114,8 +114,10 @@ func (t *HtmlInterpreterTool) Execute(ctx context.Context, args json.RawMessage)
 	logger.Infof(ctx, "[Tool][HtmlInterpreter] Rendering HTML (%d bytes), title: %s", len(htmlContent), title)
 
 	resultData := map[string]interface{}{
-		"output_type": "html",
-		"title":       title,
+		"display_type":   "html",
+		"output_type":    "html",
+		"title":          title,
+		"html_content":   htmlContent,
 	}
 
 	return &types.ToolResult{

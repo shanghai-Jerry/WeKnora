@@ -328,6 +328,77 @@
 - 工具名称 sanitization 以符合OpenAI API要求
 - 描述前缀标识外部来源以提高安全性
 
+### 17. code_interpreter (代码解释器)
+
+**作用**: 在沙箱环境中执行 Python 或 JavaScript 代码，用于数据分析、计算和图表生成。
+
+**输入参数**:
+- `code` (string, 必需): 要执行的代码
+- `language` (string, 可选): 语言，`python`（默认）或 `javascript`
+- `file_path` (string, 可选): 可选文件路径，注入为 `FILE_PATH` 变量
+
+**可用环境变量**:
+- `PLOT_DIR`: 工作目录，用于保存输出文件
+- `FILE_PATH`: 用户提供的文件路径（如果指定）
+- Python 预装: `pandas`, `numpy`
+- JavaScript 预装: `fs`, `path`
+
+**输出**:
+- `stdout`: 标准输出
+- `stderr`: 标准错误
+- `exit_code`: 退出码
+- `images`: 生成的图片列表
+- `language`: 执行语言
+- `duration_ms`: 执行耗时
+
+**安全机制**:
+- 沙箱隔离执行
+- 60 秒超时
+- 命令白名单限制
+- stdout 超过 2000 字符自动截断
+
+**典型用法**:
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv(FILE_PATH)
+print(df.describe())
+
+plt.figure(figsize=(10, 6))
+df['col'].hist()
+plt.savefig(f"{PLOT_DIR}/chart.png")
+```
+
+---
+
+### 18. html_interpreter (HTML 渲染器)
+
+**作用**: 将 HTML 内容渲染为可交互的网页报告。支持内联 HTML、文件读取和模板占位符替换三种模式。
+
+**输入参数**:
+- `html` (string, 可选): 内联 HTML 内容
+- `file_path` (string, 可选): 工作目录中的 HTML 文件路径
+- `title` (string, 可选): 报告标题（默认"HTML Report"）
+- `data` (map[string]string, 可选): 模板占位符替换数据（`{{KEY}}` → value）
+
+**输出**:
+- `output_type`: "html"
+- `title`: 报告标题
+
+**使用场景**:
+- `code_interpreter` 生成图表后，渲染包含图表的完整报告
+- 展示数据仪表盘或交互式可视化
+- 生成格式化的数据分析报告
+
+**典型工作流**:
+```
+1. code_interpreter: 生成数据和图表 → 保存到 PLOT_DIR
+2. html_interpreter: 生成包含图表引用的 HTML 报告 → 前端展示
+```
+
+**自动包裹**: 如果 HTML 不含 `<!DOCTYPE` 或 `<html` 标签，自动包裹为完整 HTML 文档。
+
 ---
 
 ## 默认允许的工具
@@ -344,9 +415,12 @@
 8. `database_query` - 查询数据库
 9. `data_analysis` - 数据分析
 10. `data_schema` - 查看数据元信息
-11. `final_answer` - 提交最终回答
+11. `code_interpreter` - 代码执行
+12. `html_interpreter` - HTML 渲染
+13. `final_answer` - 提交最终回答
 
 技能相关工具（`read_skill`、`execute_skill_script`）仅在启用技能功能时可用。
+解释器工具（`code_interpreter`、`html_interpreter`）默认启用，用于数据分析和报告生成。
 
 ---
 
@@ -375,6 +449,12 @@
 2. **web_search** - 搜索网络补充信息
 3. **web_fetch** - 获取完整网页内容
 4. **final_answer** - 提交最终答案
+
+### 数据分析与可视化流程
+
+1. **code_interpreter** - 执行 Python/JavaScript 进行数据分析和图表生成
+2. **html_interpreter** - 将分析结果和图表渲染为交互式 HTML 报告
+3. **final_answer** - 提交最终分析结论
 
 ---
 

@@ -39,5 +39,8 @@ if [ -d "$BUILTIN_DIR" ]; then
     chown -R appuser:appuser "$PRELOADED_DIR"
 fi
 
+# ─── Fix ownership of /var/run/docker.sock ───
+chown -R appuser:appuser /var/run/docker.sock
+
 # ─── Drop privileges and exec the main process ───
 exec gosu appuser "$@"

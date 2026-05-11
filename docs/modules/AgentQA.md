@@ -8,7 +8,7 @@ AgentQA 是一个基于 **ReAct（Reasoning + Acting）模式**的智能代理�
 - ReAct 循环（推理 + 行动 + 观察）
 - LLM 动态决策工具调用
 - 支持多轮迭代推理
-- 丰富的工具生态（15+ 内置工具）
+- 丰富的工具生态（17+ 内置工具，含代码解释器和 HTML 渲染器）
 - 技能系统（Skills）支持
 - MCP（Model Context Protocol）集成
 - SSE 流式响应
@@ -503,6 +503,8 @@ h.eventBus.On(event.EventAgentComplete, h.handleComplete)
 | `show_skill_details` | 显示技能详情 | 查看技能完整说明 |
 | `memory_save` | 保存记忆 | 保存长期记忆 |
 | `memory_query` | 查询记忆 | 检索长期记忆 |
+| `code_interpreter` | 代码执行 | 在沙箱中执行 Python/JavaScript，支持数据分析与图表生成 |
+| `html_interpreter` | HTML 渲染 | 将 HTML 渲染为可交互的网页报告，支持模板占位符替换 |
 
 ### MCP 工具
 
@@ -548,6 +550,180 @@ Usage: Run `show_skill_details("data_visualization")` to see full details.
 ### 查看技能详情（Level 2）
 
 Agent 调用 `show_skill_details("skill_name")` 工具，返回完整的 `skill.md` 内容。
+
+---
+
+## 解释器工具（Interpreter Tools）
+
+### 概述
+
+解释器工具是 AgentQA 的扩展能力，支持在沙箱环境中执行代码并渲染可视化报告。目前包含两个工具：
+
+- **`code_interpreter`** — 代码执行与数据分析
+- **`html_interpreter`** — HTML 渲染与报告生成
+
+两个工具通常配合使用：`code_interpreter` 负责生成数据和图表，`html_interpreter` 负责将结果渲染为交互式网页报告。
+
+---
+
+### `code_interpreter` 工具
+
+**文件：** `internal/agent/tools/code_interpreter.go`
+
+#### 功能
+
+在沙箱环境中执行 Python 或 JavaScript 代码，用于：
+- 数据分析和计算
+- 生成图表、可视化
+- 处理数据文件
+- 执行科学计算
+
+#### 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `code` | string | ✅ | 要执行的代码 |
+| `language` | string | — | `python`（默认）或 `javascript` |
+| `file_path` | string | — | 可选文件路径，注入为 `FILE_PATH` 变量 |
+
+#### 可用变量
+
+执行环境中预置了以下变量：
+- `PLOT_DIR` — 工作目录，用于保存输出文件（图表、图片）
+- `FILE_PATH` — 用户提供的文件路径（如果指定了 `file_path`）
+- Python 环境预装了 `pandas`、`numpy`
+
+#### 输出
+
+```
+```python
+<原始代码>
+```
+
+## Output
+```
+<stdout 输出>
+```
+
+## Generated Images
+- data/tmp/{session_id}/chart.png
+```
+
+#### 安全机制
+
+| 机制 | 说明 |
+|------|------|
+| 沙箱执行 | 通过 `sandbox.Manager` 在隔离环境中运行 |
+| 超时控制 | 默认 60 秒超时 |
+| 命令白名单 | 仅允许 `python3`、`node`、`bash`、`cat`、`ls` 等基础命令 |
+| 输出截断 | stdout 超过 2000 字符自动截断 |
+| 脚本清理 | 执行后自动删除临时脚本文件 |
+
+#### 代码示例
+
+**Python 数据分析：**
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 读取数据
+df = pd.read_csv(FILE_PATH)
+
+# 生成统计摘要
+summary = df.describe()
+print(summary)
+
+# 保存图表
+plt.figure(figsize=(10, 6))
+df['column'].hist()
+plt.savefig(f"{PLOT_DIR}/histogram.png")
+```
+
+**JavaScript 计算：**
+```javascript
+const data = [1, 2, 3, 4, 5];
+const sum = data.reduce((a, b) => a + b, 0);
+console.log(`Sum: ${sum}`);
+```
+
+---
+
+### `html_interpreter` 工具
+
+**文件：** `internal/agent/tools/html_interpreter.go`
+
+#### 功能
+
+将 HTML 内容渲染为可交互的网页报告。支持三种模式：
+
+1. **内联 HTML**（默认）：直接传入 HTML 字符串
+2. **文件模式**：从工作目录读取 HTML 文件
+3. **模板模式**：读取模板文件并替换 `{{KEY}}` 占位符
+
+#### 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `html` | string | — | 内联 HTML 内容 |
+| `file_path` | string | — | 工作目录中的 HTML 文件路径 |
+| `title` | string | — | 报告标题（默认"HTML Report"） |
+| `data` | map[string]string | — | 模板占位符替换数据 |
+
+#### 使用场景
+
+- `code_interpreter` 生成图表后，用此工具渲染包含图表的完整报告
+- 展示数据仪表盘或交互式可视化
+- 生成格式化的数据分析报告
+
+#### 输出
+
+返回 HTML 内容，前端以独立文档形式在侧边面板展示：
+```json
+{
+  "output_type": "html",
+  "title": "数据分析报告"
+}
+```
+
+#### 与 `code_interpreter` 的配合
+
+典型工作流：
+```
+1. code_interpreter: 生成数据和图表 → 保存到 PLOT_DIR
+2. html_interpreter: 读取图表 + 生成完整 HTML 报告 → 前端展示
+```
+
+#### 自动包裹
+
+如果传入的 HTML 不包含 `<!DOCTYPE` 或 `<html` 标签，工具会自动包裹为完整 HTML 文档：
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body>
+  <!-- 用户传入的内容 -->
+</body>
+</html>
+```
+
+---
+
+### 工具注册
+
+**文件：** `internal/application/service/agent_service.go:439-447`
+
+```go
+case tools.ToolCodeInterpreter:
+    sandboxMgr := s.getSandboxManager(ctx)
+    toolToRegister = tools.NewCodeInterpreterTool(sandboxMgr, sessionID)
+
+case tools.ToolHtmlInterpreter:
+    workDir := fmt.Sprintf("data/tmp/%s", sessionID)
+    toolToRegister = tools.NewHtmlInterpreterTool(sessionID, workDir)
+```
+
+- `code_interpreter` 依赖沙箱管理器（`sandbox.Manager`）执行代码
+- `html_interpreter` 只需工作目录路径即可运行
 
 ---
 

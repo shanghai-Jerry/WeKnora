@@ -83,6 +83,11 @@ type ExecuteConfig struct {
 	// WorkDir is the working directory for script execution
 	WorkDir string
 
+	// SharedVolume is a Docker named volume that both the app and sandbox containers mount.
+	// When set, the sandbox mounts this volume instead of doing a bind mount of the script directory.
+	// This is required when the app runs inside a Docker container (Docker-in-Docker scenario).
+	SharedVolume string
+
 	// Timeout is the maximum execution time (0 = use default)
 	Timeout time.Duration
 

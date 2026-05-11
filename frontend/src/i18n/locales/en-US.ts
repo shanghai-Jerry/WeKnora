@@ -3249,6 +3249,9 @@ export default {
       emptyContent: 'Current response is empty, cannot save to knowledge base',
       editorOpened: 'Editor opened, please select a knowledge base and save',
     },
+    htmlReport: {
+      defaultTitle: 'HTML Report',
+    },
   },
   agentEditor: {
     builtinHint: 'This is a built-in agent. Name and description cannot be modified, but configuration parameters can be adjusted.',
@@ -3322,6 +3325,10 @@ export default {
       dataAnalysisDesc: 'Understand data files and perform data analysis',
       dataSchema: 'View Data Schema',
       dataSchemaDesc: 'Get metadata of tabular files',
+      codeInterpreter: 'Code Interpreter',
+      codeInterpreterDesc: 'Execute Python code for computation and analysis',
+      htmlInterpreter: 'HTML Interpreter',
+      htmlInterpreterDesc: 'Render HTML content and capture screenshots',
       requiresKb: '(requires knowledge base configuration)',
     },
     im: {

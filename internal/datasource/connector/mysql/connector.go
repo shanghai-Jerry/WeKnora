@@ -9,6 +9,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/utils"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -340,8 +341,10 @@ func openConnection(ctx context.Context, config *Config) (*sql.DB, error) {
 
 // validateReadOnlyQuery validates that the query is read-only
 func validateReadOnlyQuery(query string) error {
+	// Strip comments before checking
+	cleaned := utils.StripSQLComments(query)
 	// Trim whitespace and convert to uppercase for checking
-	trimmed := strings.TrimSpace(strings.ToUpper(query))
+	trimmed := strings.TrimSpace(strings.ToUpper(cleaned))
 
 	// Check for forbidden keywords that indicate write operations
 	forbiddenKeywords := []string{
@@ -361,9 +364,17 @@ func validateReadOnlyQuery(query string) error {
 		}
 	}
 
-	// Must start with SELECT or WITH (for CTEs)
-	if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
-		return fmt.Errorf("invalid query: only SELECT statements are allowed")
+	// Only allow read-only statements
+	allowedPrefixes := []string{"SELECT", "WITH", "DESCRIBE", "SHOW"}
+	allowed := false
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(trimmed, prefix) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return fmt.Errorf("invalid query: only SELECT, DESCRIBE, and SHOW statements are allowed")
 	}
 
 	return nil
@@ -491,6 +502,140 @@ func (c *Connector) GetSampleData(ctx context.Context, config map[string]interfa
 	}
 
 	return columns, results, nil
+}
+
+// GetDatabaseContext returns a formatted database context string for LLM prompt injection.
+// It fetches schema, DDL, and sample data using a single database connection for efficiency.
+func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int) (string, error) {
+	mysqlConfig, err := parseConfig(config)
+	if err != nil {
+		return "", fmt.Errorf("invalid mysql config: %w", err)
+	}
+
+	db, err := openConnection(ctx, mysqlConfig)
+	if err != nil {
+		return "", fmt.Errorf("connection failed: %w", err)
+	}
+	defer db.Close()
+
+	queryCtx, cancel := context.WithTimeout(ctx, QueryTimeout)
+	defer cancel()
+
+	// Fetch all tables
+	rows, err := db.QueryContext(queryCtx,
+		"SELECT TABLE_NAME, TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'",
+		mysqlConfig.Database)
+	if err != nil {
+		return "", fmt.Errorf("failed to query tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tables []datasource.TableInfo
+	var tableNames []string
+	for rows.Next() {
+		var tableName, tableComment string
+		if err := rows.Scan(&tableName, &tableComment); err != nil {
+			return "", fmt.Errorf("failed to scan table: %w", err)
+		}
+		tableNames = append(tableNames, tableName)
+
+		// Get columns for this table
+		tableInfo, err := c.getTableColumns(queryCtx, db, mysqlConfig.Database, tableName)
+		if err != nil {
+			logger.Warnf(ctx, "[MySQL] Failed to get columns for table %s: %v", tableName, err)
+			continue
+		}
+		tableInfo.Description = tableComment
+		tables = append(tables, *tableInfo)
+	}
+
+	if len(tables) == 0 {
+		return "", nil
+	}
+
+	// Build the database context block matching AI问数.md format
+	var sb strings.Builder
+	sb.WriteString("## 数据库信息\n")
+	sb.WriteString(fmt.Sprintf("- 数据库名: %s\n", mysqlConfig.Database))
+	sb.WriteString(fmt.Sprintf("- 可用表: %s\n", strings.Join(tableNames, ", ")))
+	sb.WriteString("- 表结构:\n\n")
+
+	for _, table := range tables {
+		// Get the full CREATE TABLE statement
+		var tableNameRet, createTableSQL string
+		err = db.QueryRowContext(queryCtx, "SHOW CREATE TABLE `"+table.Name+"`").Scan(&tableNameRet, &createTableSQL)
+		if err != nil {
+			logger.Warnf(ctx, "[MySQL] Failed to get CREATE TABLE for %s: %v, falling back to schema info", table.Name, err)
+			createTableSQL = datasource.FormatFallbackCreateTable(table)
+		}
+		sb.WriteString(createTableSQL)
+		sb.WriteString("\n\n")
+
+		// Get sample data
+		if maxSampleRows <= 0 {
+			maxSampleRows = 3
+		}
+		query := fmt.Sprintf("SELECT * FROM `%s` LIMIT %d", table.Name, maxSampleRows)
+		sampleRows, err := db.QueryContext(queryCtx, query)
+		if err != nil {
+			logger.Warnf(ctx, "[MySQL] Failed to get sample data for %s: %v, skipping", table.Name, err)
+			continue
+		}
+
+		columns, err := sampleRows.Columns()
+		if err != nil {
+			sampleRows.Close()
+			continue
+		}
+
+		var results []map[string]interface{}
+		for sampleRows.Next() {
+			columnValues := make([]interface{}, len(columns))
+			columnPointers := make([]interface{}, len(columns))
+			for i := range columnValues {
+				columnPointers[i] = &columnValues[i]
+			}
+			if err := sampleRows.Scan(columnPointers...); err != nil {
+				continue
+			}
+			rowMap := make(map[string]interface{})
+			for i, colName := range columns {
+				val := columnValues[i]
+				if b, ok := val.([]byte); ok {
+					rowMap[colName] = string(b)
+				} else {
+					rowMap[colName] = val
+				}
+			}
+			results = append(results, rowMap)
+		}
+		sampleRows.Close()
+
+		if len(results) > 0 {
+			sb.WriteString(fmt.Sprintf("/*\n%d rows from %s table:\n", len(results), table.Name))
+			sb.WriteString(strings.Join(columns, "\t"))
+			sb.WriteString("\n")
+			for _, row := range results {
+				values := make([]string, len(columns))
+				for i, col := range columns {
+					val := row[col]
+					if val == nil {
+						values[i] = "None"
+					} else {
+						values[i] = fmt.Sprintf("%v", val)
+					}
+				}
+				sb.WriteString(strings.Join(values, "\t"))
+				sb.WriteString("\n")
+			}
+			sb.WriteString("*/\n\n")
+		}
+	}
+
+	sb.WriteString("- 使用 'sql_query' 工具执行 SQL 查询\n")
+	sb.WriteString("- **只允许 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE**\n")
+
+	return sb.String(), nil
 }
 
 func init() {
