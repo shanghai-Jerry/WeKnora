@@ -3251,6 +3251,8 @@ export default {
     },
     htmlReport: {
       defaultTitle: 'HTML Report',
+      open: 'Open',
+      download: 'Download',
     },
   },
   agentEditor: {

@@ -3249,6 +3249,8 @@ export default {
     },
     htmlReport: {
       defaultTitle: "HTML 报告",
+      open: "打开",
+      download: "下载",
     },
   },
   agentEditor: {

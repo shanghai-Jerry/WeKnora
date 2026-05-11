@@ -68,6 +68,8 @@ services:
       - ./skills/preloaded:/app/skills/preloaded
       # Required for Docker sandbox: lets the app container run `docker run` for sandboxed code execution
       - /var/run/docker.sock:/var/run/docker.sock
+      # Required for Docker sandbox: shared workspace between app and sandbox containers
+      - sandbox-workspace:/data/sandbox
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -484,6 +486,12 @@ networks:
     driver: bridge
 
 volumes:
+  sandbox-workspace:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}/sandbox
   postgres-data:
     driver: local
     driver_opts:

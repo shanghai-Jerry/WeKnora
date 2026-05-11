@@ -325,7 +325,8 @@ func scanImages(dir string) map[string]bool {
 	return existing
 }
 
-// findNewImages returns image files that appeared after execution
+// findNewImages returns image filenames that appeared after execution.
+// Relative filenames are returned so HTML reports in the same directory can reference them directly.
 func findNewImages(dir string, before map[string]bool) []string {
 	var newImages []string
 	entries, err := os.ReadDir(dir)
@@ -338,7 +339,7 @@ func findNewImages(dir string, before map[string]bool) []string {
 		}
 		name := entry.Name()
 		if isImageFile(name) && !before[name] {
-			newImages = append(newImages, filepath.Join(dir, name))
+			newImages = append(newImages, name)
 		}
 	}
 	return newImages

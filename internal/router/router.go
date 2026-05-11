@@ -322,6 +322,8 @@ func RegisterSessionRoutes(r *gin.RouterGroup, handler *session.Handler) {
 		sessions.POST("/:session_id/stop", handler.StopSession)
 		// 继续接收活跃流
 		sessions.GET("/continue-stream/:session_id", handler.ContinueStream)
+		// 沙箱文件服务（code_interpreter / html_interpreter 生成的文件）
+		sessions.GET("/:id/sandbox-files/*filepath", handler.ServeSandboxFile)
 	}
 }
 

@@ -621,7 +621,9 @@ const htmlReportData = computed(() => {
         display_type: 'html' as const,
         output_type: 'html' as const,
         title: event.tool_data.title || 'HTML Report',
-        html_content: event.tool_data.html_content || event.output || ''
+        html_content: event.tool_data.html_content || event.output || '',
+        file_path: event.tool_data.file_path,
+        session_id: event.tool_data.session_id,
       };
     }
   }

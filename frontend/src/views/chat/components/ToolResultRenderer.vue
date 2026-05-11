@@ -75,7 +75,7 @@
 
     <!-- HTML Report Display -->
     <HtmlReport
-      v-else-if="displayType === 'html_report'"
+      v-else-if="displayType === 'html'"
       :data="toolData as HtmlReportData"
       :output="output"
     />

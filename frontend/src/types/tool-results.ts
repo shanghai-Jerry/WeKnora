@@ -226,7 +226,9 @@ export interface HtmlReportData {
     display_type: 'html';
     output_type: 'html';
     title: string;
-    html_content: string;
+    html_content?: string;
+    file_path?: string;
+    session_id?: string;
 }
 
 // Union type for all tool result data

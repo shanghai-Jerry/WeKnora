@@ -1,12 +1,31 @@
 <template>
-  <div class="html-report-container">
+  <div v-if="fileUrl" class="html-file-card">
+    <div class="file-info">
+      <t-icon name="file" class="file-icon" />
+      <div class="file-meta">
+        <div class="file-title">{{ data.title || 'HTML Report' }}</div>
+        <div class="file-name">{{ data.file_path }}</div>
+      </div>
+    </div>
+    <div class="file-actions">
+      <t-button size="small" variant="outline" @click="openFile">
+        <t-icon name="jump" />
+        {{ $t('agentStream.htmlReport.open') }}
+      </t-button>
+      <t-button size="small" variant="outline" @click="downloadFile">
+        <t-icon name="download" />
+        {{ $t('agentStream.htmlReport.download') }}
+      </t-button>
+    </div>
+  </div>
+  <div v-else class="html-report-container">
     <iframe
       ref="iframeRef"
       :srcdoc="htmlContent"
       class="html-report-iframe"
       sandbox="allow-scripts"
       @load="onIframeLoad"
-    ></iframe>
+    />
   </div>
 </template>
 
@@ -22,6 +41,30 @@ interface Props {
 const props = defineProps<Props>();
 
 const iframeRef = ref<HTMLIFrameElement | null>(null);
+
+const fileUrl = computed(() => {
+  if (props.data?.file_path && props.data?.session_id) {
+    return `/api/v1/sessions/${props.data.session_id}/sandbox-files/${props.data.file_path}`;
+  }
+  return '';
+});
+
+const openFile = () => {
+  if (fileUrl.value) {
+    window.open(fileUrl.value, '_blank');
+  }
+};
+
+const downloadFile = () => {
+  if (fileUrl.value) {
+    const link = document.createElement('a');
+    link.href = fileUrl.value;
+    link.download = props.data.file_path || 'report.html';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
 
 // Render raw HTML directly — the iframe sandbox attribute provides security isolation.
 // DOMPurify is intentionally skipped because it strips external CSS/CDN links,
@@ -63,6 +106,54 @@ watch(htmlContent, () => {
 </script>
 
 <style lang="less" scoped>
+.html-file-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 6px;
+
+  .file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+
+    .file-icon {
+      font-size: 24px;
+      color: var(--td-brand-color);
+      flex-shrink: 0;
+    }
+
+    .file-meta {
+      min-width: 0;
+
+      .file-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--td-text-color-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-name {
+        font-size: 12px;
+        color: var(--td-text-color-secondary);
+        margin-top: 2px;
+      }
+    }
+  }
+
+  .file-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+}
+
 .html-report-container {
   width: 100%;
   border: 1px solid var(--td-component-stroke);
