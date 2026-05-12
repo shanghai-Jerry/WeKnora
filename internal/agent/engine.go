@@ -207,6 +207,12 @@ func (e *AgentEngine) Execute(
 	if len(imageURLs) > 0 {
 		imgs = imageURLs[0]
 	}
+
+	if e.config.QueryParams != "" {
+		logger.Infof(ctx, "queryParams: %s", e.config.QueryParams)
+		query = "**current query parameters**: " + e.config.QueryParams + "\n\n当前用户问题:" + query
+	}
+
 	messages := e.buildMessagesWithLLMContext(systemPrompt, query, sessionID, llmContext, imgs)
 
 	// Get tool definitions for function calling

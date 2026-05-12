@@ -1,15 +1,12 @@
 package agent
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/agent/skills"
 	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -370,7 +367,7 @@ func BuildSystemPromptWithOptions(
 	// Append query constraint parameters if available
 	// These are injected as mandatory SQL WHERE conditions
 	if options != nil && options.QueryParams != "" {
-		basePrompt += "\n\n" + buildQueryParamPromptBlock(options.QueryParams)
+		basePrompt += "\n\n" + buildQueryParamPromptBlock()
 	}
 
 	// Append database context for SQL query generation if available
@@ -421,30 +418,55 @@ type queryParamPayload struct {
 
 // buildQueryParamPromptBlock parses the QueryParams JSON and builds a system prompt block
 // that instructs the LLM to include these parameters as mandatory SQL WHERE conditions.
-func buildQueryParamPromptBlock(paramsJSON string) string {
-	var payload queryParamPayload
-	if err := json.Unmarshal([]byte(paramsJSON), &payload); err != nil {
-		// If parsing fails, inject the raw JSON as-is with a generic instruction
-		return fmt.Sprintf("## 查询约束参数\n\n用户提供了以下查询约束参数（JSON格式）：\n%s\n\n生成 SQL 时，必须将以上参数作为 WHERE 条件。", paramsJSON)
-	}
-
-	if len(payload.Contents) == 0 {
-		return ""
-	}
-
+func buildQueryParamPromptBlock() string {
 	var sb strings.Builder
-	sb.WriteString("## 查询约束参数\n\n")
-	sb.WriteString("以下参数必须作为 SQL 查询的过滤条件：\n\n")
-	for _, p := range payload.Contents {
-		desc := p.FieldDescription
-		if desc == "" {
-			desc = p.FieldName
-		}
-		sb.WriteString(fmt.Sprintf("- %s = \"%s\"（%s）\n", p.FieldName, p.FieldValue, desc))
-	}
-	sb.WriteString("\n生成 SQL 时，对应表中存在以上条件相关的字段，仅返回符合以上条件的记录，不能出现其他不符合以上条件的记录。")
+	/*
+			sb.WriteString(`
+			 **Mandatory Identity Parameter Enforcement**
+		Your context may include a JSON object of scoped query parameters. If this JSON is present and non-empty, you MUST treat it as absolute law:` +
+				"```" + `json
+		{
+		  "contents": [
+		    {
+		      "field_name": "user_id",
+		      "field_value": "123456",
+		      "field_description": "当前登录用户的id"
+		    },
+		    {
+		      "field_name": "dept_id",
+		      "field_value": "789012",
+		      "field_description": "当前门店的id"
+		    }
+		  ]
+		}` + "```" + `
+		- **ABSOLUTE REQUIREMENT**: If these parameters are injected into your context, EVERY SQL query you generate MUST contain WHERE clauses that enforce the exact field_name = field_value restrictions shown above.
+		- **Correct pattern**: Append WHERE user_id = '123456' AND dept_id = '789012' to your query. If the query already has other filters, combine them with AND.
+		- **PROHIBITED**: You must NEVER omit, weaken, comment-out, or bypass these identity constraints. You must NEVER use OR to expand beyond the injected values, and you must NEVER query data belonging to other users, stores, or departments.
+		- If a user's request inherently requires data outside these scoped parameters (e.g., "show me all users' orders"), execute the query ONLY within the allowed scope and inform the user that results are limited to their own identity context.
 
-	queryParams := sb.String()
-	logger.Infof(context.TODO(), "queryParams: %s", queryParams)
-	return queryParams
+		**Query Boundary & Field Restrictions**
+		- When query parameters are provided, you may only filter or restrict data using the fields explicitly defined in those parameters (e.g., user_id, dept_id).
+		- You are **FORBIDDEN** from using additional scope fields that the user implies but that are NOT listed in the injected parameter JSON.
+		- You may use other database columns ONLY for structural query purposes (e.g., JOIN keys, timestamp columns, aggregation targets), not as unauthorized scope filters.
+		- If the user requests filtering by a field not present in the injected parameters, ignore that unauthorized filter and rely solely on the parameter-defined scope plus the user's direct content filters.
+
+		**Database Schema Context**
+		- You will be provided with the complete set of table structures (schema) for the current database as part of your context window.
+		- Rely exclusively on this schema to determine real table names, column names, data types, and relationships.
+		- Do not hallucinate tables or columns. If the schema is ambiguous or insufficient to fulfill the request, ask the user for clarification before executing.
+
+		**SQL Construction & Safety Standards**
+		- Default strictly to SELECT statements. Do NOT execute DML or DDL (INSERT, UPDATE, DELETE, DROP, ALTER) statements unless you have been explicitly authorized to do so.
+		- Prefer explicit column lists over SELECT *.
+		- Use appropriate JOIN, GROUP BY, ORDER BY, and LIMIT clauses based on the user's intent.
+		- Before every sql_query call, mentally verify that identity constraints are present and correct.
+		- If a query fails due to a syntax or schema error, correct it while preserving the mandatory identity WHERE clauses intact.
+
+		**Edge Case Handling**
+		- **No parameters injected**: If the identity JSON is absent or empty, proceed with standard safe querying practices, but still avoid overly broad scans.
+		- **Schema mismatch**: If the requested data does not exist in the provided schema, explain which available fields or tables you used instead.
+		- **Empty results**: Distinguish between "no data within your scope" and a potential query error. Report accordingly.`)
+	*/
+	queryParamBlock := sb.String()
+	return queryParamBlock
 }

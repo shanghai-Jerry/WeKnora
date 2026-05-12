@@ -652,7 +652,7 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 	}
 
 	var sb strings.Builder
-	sb.WriteString("## 数据库信息\n")
+	sb.WriteString("**Database Schema Context**: 数据库schema上下文信息如下:\n\n")
 	// 多个config，每个config对应一个数据库，需要合并所有的数据库信息
 	for i, dsConfig := range configs {
 		// Check cache first
