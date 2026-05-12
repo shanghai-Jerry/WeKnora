@@ -2,6 +2,7 @@
   "name": "knowledage-base",
   "version": "0.3.6",
   "private": true,
+  "packageManager": "pnpm@9.15.4",
   "type": "module",
   "scripts": {
     "dev": "vite",

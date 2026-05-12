@@ -17,25 +17,59 @@ import (
 )
 
 // 无需认证的API列表
+// 支持三种匹配模式:
+//   - 精确匹配: "/api/v1/auth/login" 匹配完全相同的路径
+//   - 前缀匹配: "/api/v1/public/*" 匹配以 "/api/v1/public/" 开头的任意路径
+//   - 通配符段: "/api/v1/sessions/*/sandbox-files/*" 中的 "*" 匹配任意单个路径段
 var noAuthAPI = map[string][]string{
-	"/health":                    {"GET"},
-	"/api/v1/auth/register":      {"POST"},
-	"/api/v1/auth/login":         {"POST"},
-	"/api/v1/auth/oidc/config":   {"GET"},
-	"/api/v1/auth/oidc/url":      {"GET"},
-	"/api/v1/auth/oidc/callback": {"GET"},
-	"/api/v1/auth/refresh":       {"POST"},
+	"/health":                                    {"GET"},
+	"/api/v1/auth/register":                      {"POST"},
+	"/api/v1/auth/login":                         {"POST"},
+	"/api/v1/auth/oidc/config":                   {"GET"},
+	"/api/v1/auth/oidc/url":                      {"GET"},
+	"/api/v1/auth/oidc/callback":                 {"GET"},
+	"/api/v1/auth/refresh":                       {"POST"},
+	"/api/v1/sessions/*/sandbox-files/*":         {"GET"},
+}
+
+// matchPath 检查请求路径是否匹配给定的模式
+// 模式中的 "*" 匹配任意单个路径段, 尾部 "*" 匹配剩余所有段
+func matchPath(pattern, path string) bool {
+	// 如果模式以 "*" 结尾且不是段通配符，做前缀匹配
+	if strings.HasSuffix(pattern, "*") && !strings.Contains(strings.TrimSuffix(pattern, "*"), "*") {
+		prefix := strings.TrimSuffix(pattern, "*")
+		// 如果 prefix 以 "/" 结尾，直接前缀匹配
+		if strings.HasSuffix(prefix, "/") {
+			return strings.HasPrefix(path, prefix)
+		}
+		// 否则按段通配符处理
+	}
+
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	pathParts := strings.Split(strings.Trim(path, "/"), "/")
+
+	if len(patternParts) != len(pathParts) {
+		return false
+	}
+
+	for i, pp := range patternParts {
+		if pp == "*" {
+			continue
+		}
+		if pp != pathParts[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // 检查请求是否在无需认证的API列表中
 func isNoAuthAPI(path string, method string) bool {
 	for api, methods := range noAuthAPI {
-		// 如果以*结尾，按照前缀匹配，否则按照全路径匹配
-		if strings.HasSuffix(api, "*") {
-			if strings.HasPrefix(path, strings.TrimSuffix(api, "*")) && slices.Contains(methods, method) {
-				return true
-			}
-		} else if path == api && slices.Contains(methods, method) {
+		if !slices.Contains(methods, method) {
+			continue
+		}
+		if matchPath(api, path) {
 			return true
 		}
 	}

@@ -31,6 +31,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { getDown } from '@/utils/request';
 import type { HtmlReportData } from '@/types/tool-results';
 
 interface Props {
@@ -55,14 +56,21 @@ const openFile = () => {
   }
 };
 
-const downloadFile = () => {
-  if (fileUrl.value) {
+const downloadFile = async () => {
+  if (!fileUrl.value) return;
+
+  try {
+    const blob = await getDown(fileUrl.value);
+    const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = fileUrl.value;
+    link.href = blobUrl;
     link.download = props.data.file_path || 'report.html';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('[HtmlReport] Download failed:', error);
   }
 };
 

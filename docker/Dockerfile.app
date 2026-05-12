@@ -60,14 +60,17 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
         sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
     fi && \
     apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends --fix-missing \
         build-essential postgresql-client default-mysql-client ca-certificates tzdata sed curl bash vim wget \
         libsqlite3-0 \
         python3 python3-pip python3-dev libffi-dev libssl-dev \
         nodejs npm \
         gosu \
-        docker.io && \
+        docker.io \
+        fonts-wqy-zenhei fonts-wqy-microhei fontconfig && \ 
     python3 -m pip install --break-system-packages --upgrade pip setuptools wheel pandas numpy matplotlib && \
+    fc-cache -fv && \
+    python3 -c "import matplotlib; import shutil; shutil.rmtree(matplotlib.get_cachedir(), ignore_errors=True)" && \
     mkdir -p /home/appuser/.local/bin && \
     curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh && \
     chown -R appuser:appuser /home/appuser && \

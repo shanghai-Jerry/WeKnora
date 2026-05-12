@@ -1,17 +1,5 @@
 <template>
   <div v-if="hasStages" class="pipeline-container">
-    <!-- 等待第一个SSE事件的标识 -->
-    <div v-if="isWaitingForFirstSSE" class="waiting-block">
-      <div class="waiting-header">
-        <div class="waiting-icon">
-          <div class="waiting-dots">
-            <span></span><span></span><span></span>
-          </div>
-        </div>
-        <div class="waiting-text">正在准备检索...</div>
-      </div>
-    </div>
-
     <!-- Domain Check: 领域检查 (独立展示，放在循证检索框外面) -->
     <div v-if="shouldShowDomainCheck" class="domain-check-block">
       <div class="domain-check-header">

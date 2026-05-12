@@ -142,6 +142,7 @@ build_app_image() {
     
     docker build \
         --platform $PLATFORM \
+        --build-arg APK_MIRROR_ARG=mirrors.aliyun.com \
         --build-arg GOPRIVATE_ARG=${GOPRIVATE:-""} \
         --build-arg GOPROXY_ARG=${GOPROXY:-"https://goproxy.cn,direct"} \
         --build-arg GOSUMDB_ARG=${GOSUMDB:-"off"} \
