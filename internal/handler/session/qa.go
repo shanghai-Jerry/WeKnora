@@ -38,6 +38,7 @@ type qaRequestContext struct {
 	userMessageID     string            // Created user message ID (populated after createUserMessage)
 	channel           string            // Source channel: "web", "api", "im", etc.
 	dataSourceIDs     []string          // Data source IDs for AI query (sql_query tool)
+	queryParams       string            // JSON string of query constraint parameters
 }
 
 // buildQARequest converts the qaRequestContext into a types.QARequest for service invocation.
@@ -57,6 +58,7 @@ func (rc *qaRequestContext) buildQARequest() *types.QARequest {
 		WebSearchEnabled:   rc.webSearchEnabled,
 		EnableMemory:       rc.enableMemory,
 		DataSourceIDs:      rc.dataSourceIDs,
+		QueryParams:        rc.queryParams,
 	}
 }
 
@@ -163,6 +165,7 @@ func (h *Handler) parseQARequest(c *gin.Context, logPrefix string) (*qaRequestCo
 		images:            request.Images,
 		channel:           request.Channel,
 		dataSourceIDs:     request.DataSourceIDs,
+		queryParams:       request.QueryParams,
 	}
 
 	return reqCtx, &request, nil

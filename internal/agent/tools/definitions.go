@@ -19,7 +19,7 @@ const (
 	ToolWebSearch           = "web_search"
 	ToolWebFetch            = "web_fetch"
 	ToolFinalAnswer         = "final_answer"
-	ToolSQLQuery            = "sql_query" // AI问数：查询外部数据库
+	ToolSQLQuery            = "sql_query" // 查询外部数据库
 	// Skills-related tools (only available when skills are enabled)
 	ToolExecuteSkillScript = "execute_skill_script"
 	ToolReadSkill          = "read_skill"

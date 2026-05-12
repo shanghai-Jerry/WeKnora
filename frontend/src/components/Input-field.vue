@@ -15,6 +15,7 @@ import KnowledgeBaseSelector from './KnowledgeBaseSelector.vue';
 import MentionSelector from './MentionSelector.vue';
 import AgentSelector from './AgentSelector.vue';
 import DataSourceSelector from './DataSourceSelector.vue';
+import QueryParamEditor from './QueryParamEditor.vue';
 import { getCaretCoordinates } from '@/utils/caret';
 import { listModels, type ModelConfig } from '@/api/model';
 import { listAgents, type CustomAgent, BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from '@/api/agent';
@@ -34,6 +35,7 @@ const { t } = useI18n();
 let query = ref("");
 const showKbSelector = ref(false);
 const showDataSourceSelector = ref(false);
+const showQueryParamEditor = ref(false);
 
 // Plus menu state
 const showPlusMenu = ref(false);
@@ -406,6 +408,13 @@ const removeSelectedDataSource = (id: string) => {
   settingsStore.removeDataSource(id);
 };
 
+// 查询参数相关
+const queryParams = computed(() => settingsStore.settings.queryParams || []);
+
+const removeQueryParam = (index: number) => {
+  settingsStore.removeQueryParam(index);
+};
+
 // Plus menu functions
 const togglePlusMenu = () => {
   // Close other selectors
@@ -471,6 +480,11 @@ const handleUploadFile = () => {
 const handleSelectDataSource = () => {
   closePlusMenu();
   showDataSourceSelector.value = true;
+};
+
+const handleQueryParams = () => {
+  closePlusMenu();
+  showQueryParamEditor.value = true;
 };
 
 const handleSelectKnowledgeBase = () => {
@@ -1982,7 +1996,7 @@ defineExpose({
         </div>
       </div>
         <!-- 选中的知识库、文件和数据源标签（显示在输入框内顶部） -->
-      <div v-if="allSelectedItems.length > 0 || selectedDataSources.length > 0" class="selected-tags-inline">
+      <div v-if="allSelectedItems.length > 0 || selectedDataSources.length > 0 || queryParams.length > 0" class="selected-tags-inline">
         <span 
           v-for="item in allSelectedItems" 
           :key="item.id" 
@@ -2021,6 +2035,25 @@ defineExpose({
           </span>
           <span class="mention-chip__name" :title="ds.name">{{ ds.name }}</span>
           <span class="mention-chip__remove" @click.stop="removeSelectedDataSource(ds.id)" :aria-label="$t('common.remove')">×</span>
+        </span>
+        <!-- 查询参数标签 -->
+        <span
+          v-for="(qp, qpIdx) in queryParams"
+          :key="'qp-' + qpIdx"
+          class="mention-chip mention-chip--queryparam"
+          @click="showQueryParamEditor = true"
+        >
+          <span class="mention-chip__icon-wrap">
+            <span class="mention-chip__icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </span>
+          <span class="mention-chip__name" :title="qp.field_name + '=' + qp.field_value">{{ qp.field_name }}={{ qp.field_value }}</span>
+          <span class="mention-chip__remove" @click.stop="removeQueryParam(qpIdx)" :aria-label="$t('common.remove')">×</span>
         </span>
       </div>
       
@@ -2083,6 +2116,14 @@ defineExpose({
                     <path d="M4 12V18C4 19.6569 7.58172 21 12 21C16.4183 21 20 19.6569 20 18V12" stroke="currentColor" stroke-width="2"/>
                   </svg>
                   <span>Select Data Source</span>
+                </div>
+                <div class="plus-menu-item" @click="handleQueryParams">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                  </svg>
+                  <span>{{ t('queryParam.menuItem') }}</span>
                 </div>
                 <div class="plus-menu-divider"></div>
                 <div class="plus-menu-item" @click="handleSelectKnowledgeBase">
@@ -2331,6 +2372,12 @@ defineExpose({
       v-model:visible="showDataSourceSelector"
       @close="showDataSourceSelector = false"
     />
+
+    <!-- 查询参数编辑模态框 -->
+    <QueryParamEditor
+      v-model:visible="showQueryParamEditor"
+      @close="showQueryParamEditor = false"
+    />
   </div>
 </template>
 <script lang="ts">
@@ -2543,6 +2590,24 @@ const getImgSrc = (url: string) => {
 .mention-chip--datasource:hover {
   background: rgba(59, 130, 246, 0.12);
   border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* 查询参数：橙/琥珀色调 */
+.mention-chip--queryparam {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: var(--td-text-color-primary, #1f2937);
+  cursor: pointer;
+}
+
+.mention-chip--queryparam .mention-chip__icon-wrap {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.mention-chip--queryparam:hover {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 /* Plus 菜单样式 */

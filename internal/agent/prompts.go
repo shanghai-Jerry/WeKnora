@@ -1,12 +1,15 @@
 package agent
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/agent/skills"
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -295,11 +298,12 @@ func renderPromptPlaceholdersWithStatus(
 
 // BuildSystemPromptOptions contains optional parameters for BuildSystemPrompt
 type BuildSystemPromptOptions struct {
-	SkillsMetadata      []*skills.SkillMetadata
-	Language            string         // User language name for {{language}} placeholder (e.g. "Chinese (Simplified)")
-	Config              *config.Config // Config for reading prompt templates; nil falls back to hardcoded defaults
-	IntentExploreBlock  string         // Intent explore analysis block appended to system prompt
-	DatabaseContext     string         // Database schema context for SQL query generation (appended when user references a datasource)
+	SkillsMetadata     []*skills.SkillMetadata
+	Language           string         // User language name for {{language}} placeholder (e.g. "Chinese (Simplified)")
+	Config             *config.Config // Config for reading prompt templates; nil falls back to hardcoded defaults
+	IntentExploreBlock string         // Intent explore analysis block appended to system prompt
+	DatabaseContext    string         // Database schema context for SQL query generation (appended when user references a datasource)
+	QueryParams        string         // Query constraint parameters for SQL WHERE conditions (JSON string)
 }
 
 // BuildSystemPrompt builds the progressive RAG system prompt
@@ -363,9 +367,16 @@ func BuildSystemPromptWithOptions(
 		basePrompt += "\n\n" + options.IntentExploreBlock
 	}
 
+	// Append query constraint parameters if available
+	// These are injected as mandatory SQL WHERE conditions
+	if options != nil && options.QueryParams != "" {
+		basePrompt += "\n\n" + buildQueryParamPromptBlock(options.QueryParams)
+	}
+
 	// Append database context for SQL query generation if available
 	// This is injected only when user has referenced a specific datasourceID
 	if options != nil && options.DatabaseContext != "" {
+		// TODO: 添加一些AI问数的额外提示词限制
 		basePrompt += "\n\n" + options.DatabaseContext
 	}
 
@@ -394,4 +405,46 @@ func GetProgressiveRAGSystemPrompt(cfg *config.Config) string {
 		}
 	}
 	return ""
+}
+
+// queryParamEntry represents a single query constraint parameter
+type queryParamEntry struct {
+	FieldName        string `json:"field_name"`
+	FieldValue       string `json:"field_value"`
+	FieldDescription string `json:"field_description"`
+}
+
+// queryParamPayload is the expected JSON structure for QueryParams
+type queryParamPayload struct {
+	Contents []queryParamEntry `json:"contents"`
+}
+
+// buildQueryParamPromptBlock parses the QueryParams JSON and builds a system prompt block
+// that instructs the LLM to include these parameters as mandatory SQL WHERE conditions.
+func buildQueryParamPromptBlock(paramsJSON string) string {
+	var payload queryParamPayload
+	if err := json.Unmarshal([]byte(paramsJSON), &payload); err != nil {
+		// If parsing fails, inject the raw JSON as-is with a generic instruction
+		return fmt.Sprintf("## 查询约束参数\n\n用户提供了以下查询约束参数（JSON格式）：\n%s\n\n生成 SQL 时，必须将以上参数作为 WHERE 条件。", paramsJSON)
+	}
+
+	if len(payload.Contents) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("## 查询约束参数\n\n")
+	sb.WriteString("以下参数必须作为 SQL 查询的过滤条件：\n\n")
+	for _, p := range payload.Contents {
+		desc := p.FieldDescription
+		if desc == "" {
+			desc = p.FieldName
+		}
+		sb.WriteString(fmt.Sprintf("- %s = \"%s\"（%s）\n", p.FieldName, p.FieldValue, desc))
+	}
+	sb.WriteString("\n生成 SQL 时，对应表中存在以上条件相关的字段，仅返回符合以上条件的记录，不能出现其他不符合以上条件的记录。")
+
+	queryParams := sb.String()
+	logger.Infof(context.TODO(), "queryParams: %s", queryParams)
+	return queryParams
 }

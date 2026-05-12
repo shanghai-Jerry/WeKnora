@@ -18,4 +18,5 @@ type QARequest struct {
 	EnableMemory       bool         // Whether memory feature is enabled
 	QuotedContext      string       // Quoted message content from IM quote-reply (appended at LLM prompt stage, not used for retrieval)
 	DataSourceIDs      []string     // Data source IDs for AI query (sql_query tool)
+	QueryParams        string       // JSON string of query constraint parameters
 }

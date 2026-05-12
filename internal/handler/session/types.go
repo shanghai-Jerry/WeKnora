@@ -51,6 +51,7 @@ type CreateKnowledgeQARequest struct {
 	Images           []ImageAttachment      `json:"images"`                                // Attached images for multimodal chat
 	Channel          string                 `json:"channel"`                               // Source channel: "web", "api", "im", etc.
 	DataSourceIDs    []string               `json:"data_source_ids"`                       // Selected data source IDs for AI query (sql_query tool)
+	QueryParams      string                 `json:"query_params"`                          // JSON string of query constraint parameters (field_name, field_value, field_description)
 }
 
 // SearchKnowledgeRequest defines the request structure for searching knowledge without LLM summarization

@@ -188,6 +188,7 @@ func (e *AgentEngine) Execute(
 		Config:             e.appConfig,
 		IntentExploreBlock: e.config.IntentExploreSystemBlock,
 		DatabaseContext:    e.config.DatabaseContext,
+		QueryParams:        e.config.QueryParams,
 	}
 	if e.skillsManager != nil && e.skillsManager.IsEnabled() {
 		promptOpts.SkillsMetadata = e.skillsManager.GetAllMetadata()

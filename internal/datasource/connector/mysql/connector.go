@@ -553,9 +553,8 @@ func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]in
 		return "", nil
 	}
 
-	// Build the database context block matching AI问数.md format
+	// Build the database context block matching the specification of the database context format
 	var sb strings.Builder
-	sb.WriteString("## 数据库信息\n")
 	sb.WriteString(fmt.Sprintf("- 数据库名: %s\n", mysqlConfig.Database))
 	sb.WriteString(fmt.Sprintf("- 可用表: %s\n", strings.Join(tableNames, ", ")))
 	sb.WriteString("- 表结构:\n\n")

@@ -72,7 +72,7 @@ type DBConnector interface {
 
 	// GetDatabaseContext returns a formatted database context string for LLM prompt injection.
 	// It fetches schema, DDL, and sample data using a single database connection for efficiency.
-	// The output format should match the AI问数.md specification.
+	// The output format should match the database context specification.
 	GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int) (string, error)
 }
 

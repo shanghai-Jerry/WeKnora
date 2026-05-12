@@ -77,6 +77,10 @@ type AgentConfig struct {
 	// When set, the system prompt will include database schema information
 	// so the LLM can generate correct SQL queries.
 	DatabaseContext string `json:"-"`
+	// Query constraint parameters for system prompt injection (runtime only).
+	// JSON string containing field_name/field_value/field_description entries.
+	// When set, the system prompt will include these as mandatory SQL WHERE conditions.
+	QueryParams string `json:"-"`
 }
 
 // AgentDataSourceConfig represents a data source configuration for AI query (runtime only)

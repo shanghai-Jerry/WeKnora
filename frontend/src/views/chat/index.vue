@@ -476,6 +476,10 @@ const sendMsg = async (value, modelId = '', mentionedItems = [], imageFiles = []
     const knowledgeIds = [...fileIdSet];
     const dataSourceIds = [...dataSourceIdSet];
 
+    // Get query constraint params from settings store
+    const queryParams = useSettingsStoreInstance.settings.queryParams || [];
+    const queryParamsStr = queryParams.length > 0 ? JSON.stringify({ contents: queryParams }) : undefined;
+
     // Get selected agent ID (backend resolves shared agent and its tenant from share relation)
     const selectedAgentId = useSettingsStoreInstance.selectedAgentId || '';
 
@@ -496,6 +500,7 @@ const sendMsg = async (value, modelId = '', mentionedItems = [], imageFiles = []
         summary_model_id: modelId,
         mcp_service_ids: mcpServiceIds,
         data_source_ids: dataSourceIds,
+        query_params: queryParamsStr,
         mentioned_items: mentionedItems,
         images: imageAttachments.length > 0 ? imageAttachments : undefined,
         query: value, 

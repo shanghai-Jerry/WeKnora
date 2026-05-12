@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,14 +35,8 @@ var dbContextCache sync.Map
 const dbContextCacheTTL = 5 * time.Minute
 
 // dbContextCacheKey computes a cache key from datasource type and config
-func dbContextCacheKey(dsType string, config map[string]interface{}) string {
-	h := sha256.New()
-	h.Write([]byte(dsType))
-	// Sort-stable JSON encoding of config
-	if data, err := json.Marshal(config); err == nil {
-		h.Write(data)
-	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+func dbContextCacheKey(id string) string {
+	return id
 }
 
 // AgentQA performs agent-based question answering with conversation history and streaming support
@@ -365,6 +358,12 @@ func (s *sessionService) buildAgentConfig(
 		}
 	}
 
+	// Set query constraint parameters for system prompt injection
+	if req.QueryParams != "" {
+		agentConfig.QueryParams = req.QueryParams
+		logger.Infof(ctx, "Query params set for system prompt injection (%d chars)", len(req.QueryParams))
+	}
+
 	return agentConfig, nil
 }
 
@@ -645,7 +644,7 @@ func (s *sessionService) resolveDataSourceConfigs(ctx context.Context, dataSourc
 
 // fetchDatabaseContext fetches database schema information and formats it for system prompt injection.
 // This is called only when DataSourceConfigs are present (user has referenced a datasource).
-// Format follows AI问数.md: database name, table list, CREATE TABLE DDL, and sample data.
+// Format follows the database context specification: database name, table list, CREATE TABLE DDL, and sample data.
 // Results are cached for 5 minutes to avoid repeated schema fetches.
 func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []types.AgentDataSourceConfig) string {
 	if len(configs) == 0 {
@@ -653,10 +652,11 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 	}
 
 	var sb strings.Builder
-
-	for _, dsConfig := range configs {
+	sb.WriteString("## 数据库信息\n")
+	// 多个config，每个config对应一个数据库，需要合并所有的数据库信息
+	for i, dsConfig := range configs {
 		// Check cache first
-		cacheKey := dbContextCacheKey(dsConfig.Type, dsConfig.Config)
+		cacheKey := dbContextCacheKey(dsConfig.ID)
 		if cached, ok := dbContextCache.Load(cacheKey); ok {
 			entry := cached.(*dbContextCacheEntry)
 			if time.Now().Before(entry.expires) {
@@ -676,9 +676,7 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 
 		// Try the optimized single-connection method first
 		var dbContext string
-		if gc, ok := connector.(interface {
-			GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int) (string, error)
-		}); ok {
+		if gc, ok := connector.(datasource.DBConnector); ok {
 			dbContext, err = gc.GetDatabaseContext(ctx, dsConfig.Config, 3)
 			if err != nil {
 				logger.Warnf(ctx, "GetDatabaseContext failed for %s, falling back: %v", dsConfig.ID, err)
@@ -691,6 +689,7 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 		}
 
 		if dbContext != "" {
+			sb.WriteString(fmt.Sprintf("第%d个数据库信息:\n", i+1))
 			sb.WriteString(dbContext)
 			// Cache the result
 			dbContextCache.Store(cacheKey, &dbContextCacheEntry{
@@ -727,7 +726,6 @@ func (s *sessionService) fetchDatabaseContextLegacy(ctx context.Context, dsConfi
 	}
 
 	var sb strings.Builder
-	sb.WriteString("## 数据库信息\n")
 	sb.WriteString(fmt.Sprintf("- 数据库名: %s\n", dbName))
 
 	tableNames := make([]string, 0, len(tables))

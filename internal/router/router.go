@@ -802,7 +802,7 @@ func RegisterDataSourceRoutes(r *gin.RouterGroup, handler *handler.DataSourceHan
 	}
 }
 
-// RegisterQueryDataSourceRoutes 注册AI问数数据源相关的路由
+// RegisterQueryDataSourceRoutes 注册查询数据源相关的路由
 func RegisterQueryDataSourceRoutes(r *gin.RouterGroup, handler *handler.QueryDataSourceHandler) {
 	// Query data source routes
 	qds := r.Group("/query-data-sources")

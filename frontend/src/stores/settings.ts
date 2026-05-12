@@ -1,6 +1,13 @@
 import { defineStore } from "pinia";
 import { BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from "@/api/agent";
 
+// 查询约束参数项
+export interface QueryParamItem {
+  field_name: string;
+  field_value: string;
+  field_description: string;
+}
+
 // 定义设置接口
 interface Settings {
   endpoint: string;
@@ -12,6 +19,7 @@ interface Settings {
   selectedFiles: string[]; // 当前选中的文件ID列表
   selectedFileKbMap: Record<string, string>; // 文件ID -> 知识库ID，用于刷新后带 kb_id 拉取共享知识库文件
   selectedDataSources: string[]; // 当前选中的数据源ID列表（用于 AI SQL 查询）
+  queryParams: QueryParamItem[]; // 查询约束参数（用于 AI SQL 查询的 WHERE 条件注入）
   modelConfig: ModelConfig;  // 模型配置
   ollamaConfig: OllamaConfig;  // Ollama配置
   webSearchEnabled: boolean;  // 网络搜索是否启用
@@ -78,6 +86,7 @@ const defaultSettings: Settings = {
   selectedFiles: [], // 默认为空数组
   selectedFileKbMap: {},  // 文件ID -> 知识库ID
   selectedDataSources: [], // 默认为空数组
+  queryParams: [], // 默认为空数组
   modelConfig: {
     chatModels: [],
     embeddingModels: [],
@@ -325,7 +334,35 @@ export const useSettingsStore = defineStore("settings", {
     getSelectedDataSources(): string[] {
       return this.settings.selectedDataSources || [];
     },
-    
+
+    // 查询约束参数操作（用于 AI SQL 查询的 WHERE 条件注入）
+    addQueryParam(param: QueryParamItem) {
+      if (!this.settings.queryParams) this.settings.queryParams = [];
+      this.settings.queryParams.push(param);
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+
+    updateQueryParam(index: number, param: QueryParamItem) {
+      if (!this.settings.queryParams || index < 0 || index >= this.settings.queryParams.length) return;
+      this.settings.queryParams[index] = param;
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+
+    removeQueryParam(index: number) {
+      if (!this.settings.queryParams) return;
+      this.settings.queryParams.splice(index, 1);
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+
+    clearQueryParams() {
+      this.settings.queryParams = [];
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+
+    getQueryParams(): QueryParamItem[] {
+      return this.settings.queryParams || [];
+    },
+
     // 启用/禁用网络搜索
     toggleWebSearch(enabled: boolean) {
       this.settings.webSearchEnabled = enabled;
