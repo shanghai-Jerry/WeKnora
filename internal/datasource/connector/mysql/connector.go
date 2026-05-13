@@ -174,7 +174,7 @@ func (c *Connector) ExecuteQuery(ctx context.Context, config map[string]interfac
 }
 
 // GetTableSchema returns schema information for all accessible tables
-func (c *Connector) GetTableSchema(ctx context.Context, config map[string]interface{}) ([]datasource.TableInfo, error) {
+func (c *Connector) GetTableSchema(ctx context.Context, config map[string]interface{}, queryParams []string) ([]datasource.TableInfo, error) {
 	mysqlConfig, err := parseConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("invalid mysql config: %w", err)
@@ -191,7 +191,7 @@ func (c *Connector) GetTableSchema(ctx context.Context, config map[string]interf
 	defer cancel()
 
 	rows, err := db.QueryContext(queryCtx,
-		"SELECT TABLE_NAME, TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'",
+		"SELECT TABLE_NAME, TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'",
 		mysqlConfig.Database)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tables: %w", err)
@@ -203,6 +203,10 @@ func (c *Connector) GetTableSchema(ctx context.Context, config map[string]interf
 		var tableName, tableComment string
 		if err := rows.Scan(&tableName, &tableComment); err != nil {
 			return nil, fmt.Errorf("failed to scan table: %w", err)
+		}
+		// Filter tables by query params
+		if !isMatchTable(tableName, queryParams) {
+			continue
 		}
 
 		// Get columns for this table
@@ -504,9 +508,22 @@ func (c *Connector) GetSampleData(ctx context.Context, config map[string]interfa
 	return columns, results, nil
 }
 
+// isMatchTable checks if a table name matches any of the query parameters
+func isMatchTable(tableName string, queryParams []string) bool {
+	if len(queryParams) == 0 {
+		return true
+	}
+	for _, param := range queryParams {
+		if strings.Contains(tableName, param) {
+			return true
+		}
+	}
+	return false
+}
+
 // GetDatabaseContext returns a formatted database context string for LLM prompt injection.
 // It fetches schema, DDL, and sample data using a single database connection for efficiency.
-func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int) (string, error) {
+func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int, queryParams []string) (string, error) {
 	mysqlConfig, err := parseConfig(config)
 	if err != nil {
 		return "", fmt.Errorf("invalid mysql config: %w", err)
@@ -523,7 +540,7 @@ func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]in
 
 	// Fetch all tables
 	rows, err := db.QueryContext(queryCtx,
-		"SELECT TABLE_NAME, TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'",
+		"SELECT TABLE_NAME, TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'",
 		mysqlConfig.Database)
 	if err != nil {
 		return "", fmt.Errorf("failed to query tables: %w", err)
@@ -537,6 +554,11 @@ func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]in
 		if err := rows.Scan(&tableName, &tableComment); err != nil {
 			return "", fmt.Errorf("failed to scan table: %w", err)
 		}
+
+		if !isMatchTable(tableName, queryParams) {
+			continue
+		}
+
 		tableNames = append(tableNames, tableName)
 
 		// Get columns for this table
@@ -549,6 +571,8 @@ func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]in
 		tables = append(tables, *tableInfo)
 	}
 
+	logger.Infof(ctx, "可用表数量: %d", len(tables))
+
 	if len(tables) == 0 {
 		return "", nil
 	}
@@ -560,13 +584,8 @@ func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]in
 	sb.WriteString("- 表结构:\n\n")
 
 	for _, table := range tables {
-		// Get the full CREATE TABLE statement
-		var tableNameRet, createTableSQL string
-		err = db.QueryRowContext(queryCtx, "SHOW CREATE TABLE `"+table.Name+"`").Scan(&tableNameRet, &createTableSQL)
-		if err != nil {
-			logger.Warnf(ctx, "[MySQL] Failed to get CREATE TABLE for %s: %v, falling back to schema info", table.Name, err)
-			createTableSQL = datasource.FormatFallbackCreateTable(table)
-		}
+		var createTableSQL string
+		createTableSQL = datasource.FormatFallbackCreateTable(table)
 		sb.WriteString(createTableSQL)
 		sb.WriteString("\n\n")
 
@@ -635,6 +654,41 @@ func (c *Connector) GetDatabaseContext(ctx context.Context, config map[string]in
 	sb.WriteString("- **只允许 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE**\n")
 
 	return sb.String(), nil
+}
+
+// formatSchemaAsMarkdown formats table schema as Markdown
+func formatSchemaAsMarkdown(tables []datasource.TableInfo) string {
+	var sb strings.Builder
+
+	for _, table := range tables {
+		sb.WriteString(fmt.Sprintf("### %s\n", table.Name))
+		if table.Description != "" {
+			sb.WriteString(fmt.Sprintf("Description: %s\n", table.Description))
+		}
+
+		sb.WriteString("\n| Column | Type | Nullable | Key | Description |\n")
+		sb.WriteString("|--------|------|----------|-----|-------------|\n")
+
+		for _, col := range table.Columns {
+			nullable := "NO"
+			if col.Nullable {
+				nullable = "YES"
+			}
+			key := ""
+			if col.IsPrimaryKey {
+				key = "PRI"
+			}
+			desc := col.Description
+			if desc == "" {
+				desc = "-"
+			}
+			sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s |\n",
+				col.Name, col.Type, nullable, key, desc))
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
 }
 
 func init() {

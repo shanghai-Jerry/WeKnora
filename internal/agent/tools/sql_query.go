@@ -55,13 +55,6 @@ func NewSQLQueryTool(dsService DataSourceServiceInterface, dsID string, dsType s
 		dataSourceConfig:  dsConfig,
 	}
 
-	// Try to fetch schema information at tool creation time
-	schemaInfo := fetchSchemaInfo(context.Background(), dsType, dsConfig)
-	if schemaInfo != "" {
-		tool.schemaInfo = schemaInfo
-		tool.description = description + "\n\n## Available Tables and Columns\n\n" + schemaInfo
-	}
-
 	return tool
 }
 
@@ -98,62 +91,6 @@ Results are returned in Markdown table format with:
 - Use the exact table and column names from the schema above
 - Always use appropriate JOIN conditions when joining tables
 - Use LIMIT for better performance on large tables`, strings.ToUpper(dbType), dsID)
-}
-
-// fetchSchemaInfo fetches database schema information
-func fetchSchemaInfo(ctx context.Context, dbType string, config map[string]interface{}) string {
-	connector, err := datasource.GlobalDBConnectorRegistry.Get(dbType)
-	if err != nil {
-		logger.Warnf(ctx, "[SQLQuery] Failed to get connector for schema fetch: %v", err)
-		return ""
-	}
-
-	tables, err := connector.GetTableSchema(ctx, config)
-	if err != nil {
-		logger.Warnf(ctx, "[SQLQuery] Failed to fetch schema: %v", err)
-		return ""
-	}
-
-	if len(tables) == 0 {
-		return ""
-	}
-
-	return formatSchemaAsMarkdown(tables)
-}
-
-// formatSchemaAsMarkdown formats table schema as Markdown
-func formatSchemaAsMarkdown(tables []datasource.TableInfo) string {
-	var sb strings.Builder
-
-	for _, table := range tables {
-		sb.WriteString(fmt.Sprintf("### %s\n", table.Name))
-		if table.Description != "" {
-			sb.WriteString(fmt.Sprintf("Description: %s\n", table.Description))
-		}
-
-		sb.WriteString("\n| Column | Type | Nullable | Key | Description |\n")
-		sb.WriteString("|--------|------|----------|-----|-------------|\n")
-
-		for _, col := range table.Columns {
-			nullable := "NO"
-			if col.Nullable {
-				nullable = "YES"
-			}
-			key := ""
-			if col.IsPrimaryKey {
-				key = "PRI"
-			}
-			desc := col.Description
-			if desc == "" {
-				desc = "-"
-			}
-			sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s |\n",
-				col.Name, col.Type, nullable, key, desc))
-		}
-		sb.WriteString("\n")
-	}
-
-	return sb.String()
 }
 
 // Execute executes the SQL query tool

@@ -57,7 +57,7 @@ type DBConnector interface {
 	ExecuteQuery(ctx context.Context, config map[string]interface{}, query string, maxRows int) (*QueryResult, error)
 
 	// GetTableSchema returns schema information for all accessible tables
-	GetTableSchema(ctx context.Context, config map[string]interface{}) ([]TableInfo, error)
+	GetTableSchema(ctx context.Context, config map[string]interface{}, queryParams []string) ([]TableInfo, error)
 
 	// GetTableSchemaForTable returns schema information for a specific table
 	GetTableSchemaForTable(ctx context.Context, config map[string]interface{}, tableName string) (*TableInfo, error)
@@ -73,7 +73,7 @@ type DBConnector interface {
 	// GetDatabaseContext returns a formatted database context string for LLM prompt injection.
 	// It fetches schema, DDL, and sample data using a single database connection for efficiency.
 	// The output format should match the database context specification.
-	GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int) (string, error)
+	GetDatabaseContext(ctx context.Context, config map[string]interface{}, maxSampleRows int, queryParams []string) (string, error)
 }
 
 // DBConnectorRegistry manages the registration and lookup of available database connectors

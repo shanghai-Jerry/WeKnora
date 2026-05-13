@@ -333,6 +333,18 @@ func (s *sessionService) buildAgentConfig(
 		agentConfig.MaxContextTokens = types.DefaultMaxContextTokens
 	}
 
+	// Set query constraint parameters for system prompt injection
+	var queryParamsMap = make(map[string]string)
+	if req.QueryParams != "" {
+		agentConfig.QueryParams = req.QueryParams
+		queryParamsMap = s.parseQueryParams(req.QueryParams)
+		logger.Infof(ctx, "Query params set for system prompt injection (%d chars)", len(req.QueryParams))
+	}
+	var queryParamKeys []string
+	for key := range queryParamsMap {
+		queryParamKeys = append(queryParamKeys, key)
+	}
+	logger.Infof(ctx, "Query params keys: [%v]", queryParamKeys)
 	// Configure data sources for AI query (sql_query tool)
 	if len(req.DataSourceIDs) > 0 {
 		logger.Infof(ctx, "Agent configured with datasource(s): %v", req.DataSourceIDs)
@@ -347,7 +359,7 @@ func (s *sessionService) buildAgentConfig(
 			logger.Infof(ctx, "Agent configured with %d data source(s): %v", len(dataSourceConfigs), req.DataSourceIDs)
 
 			// Fetch database schema and format as context for system prompt
-			dbContext := s.fetchDatabaseContext(ctx, dataSourceConfigs)
+			dbContext := s.fetchDatabaseContext(ctx, dataSourceConfigs, queryParamKeys)
 			if dbContext != "" {
 				agentConfig.DatabaseContext = dbContext
 				logger.Infof(ctx, "Database context prepared for system prompt injection (%d chars)", len(dbContext))
@@ -356,12 +368,6 @@ func (s *sessionService) buildAgentConfig(
 				}
 			}
 		}
-	}
-
-	// Set query constraint parameters for system prompt injection
-	if req.QueryParams != "" {
-		agentConfig.QueryParams = req.QueryParams
-		logger.Infof(ctx, "Query params set for system prompt injection (%d chars)", len(req.QueryParams))
 	}
 
 	return agentConfig, nil
@@ -646,13 +652,13 @@ func (s *sessionService) resolveDataSourceConfigs(ctx context.Context, dataSourc
 // This is called only when DataSourceConfigs are present (user has referenced a datasource).
 // Format follows the database context specification: database name, table list, CREATE TABLE DDL, and sample data.
 // Results are cached for 5 minutes to avoid repeated schema fetches.
-func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []types.AgentDataSourceConfig) string {
+func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []types.AgentDataSourceConfig, queryParams []string) string {
 	if len(configs) == 0 {
 		return ""
 	}
 
 	var sb strings.Builder
-	sb.WriteString("**Database Schema Context**: 数据库schema上下文信息如下:\n\n")
+	sb.WriteString("数据库schema上下文信息如下:\n\n")
 	// 多个config，每个config对应一个数据库，需要合并所有的数据库信息
 	for i, dsConfig := range configs {
 		// Check cache first
@@ -677,7 +683,7 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 		// Try the optimized single-connection method first
 		var dbContext string
 		if gc, ok := connector.(datasource.DBConnector); ok {
-			dbContext, err = gc.GetDatabaseContext(ctx, dsConfig.Config, 3)
+			dbContext, err = gc.GetDatabaseContext(ctx, dsConfig.Config, 3, queryParams)
 			if err != nil {
 				logger.Warnf(ctx, "GetDatabaseContext failed for %s, falling back: %v", dsConfig.ID, err)
 			}
@@ -685,9 +691,8 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 
 		// Fallback to legacy per-call approach if GetDatabaseContext is not available or fails
 		if dbContext == "" {
-			dbContext = s.fetchDatabaseContextLegacy(ctx, dsConfig)
+			dbContext = s.fetchDatabaseContextLegacy(ctx, dsConfig, queryParams)
 		}
-
 		if dbContext != "" {
 			sb.WriteString(fmt.Sprintf("第%d个数据库信息:\n", i+1))
 			sb.WriteString(dbContext)
@@ -703,13 +708,12 @@ func (s *sessionService) fetchDatabaseContext(ctx context.Context, configs []typ
 }
 
 // fetchDatabaseContextLegacy fetches database context using the legacy per-call approach (fallback)
-func (s *sessionService) fetchDatabaseContextLegacy(ctx context.Context, dsConfig types.AgentDataSourceConfig) string {
+func (s *sessionService) fetchDatabaseContextLegacy(ctx context.Context, dsConfig types.AgentDataSourceConfig, queryParams []string) string {
 	connector, err := datasource.GlobalDBConnectorRegistry.Get(dsConfig.Type)
 	if err != nil {
 		return ""
 	}
-
-	tables, err := connector.GetTableSchema(ctx, dsConfig.Config)
+	tables, err := connector.GetTableSchema(ctx, dsConfig.Config, queryParams)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to fetch schema for data source %s: %v", dsConfig.ID, err)
 		return ""
@@ -732,18 +736,16 @@ func (s *sessionService) fetchDatabaseContextLegacy(ctx context.Context, dsConfi
 	for _, table := range tables {
 		tableNames = append(tableNames, table.Name)
 	}
+
+	logger.Infof(ctx, "可用表数量: %d", len(tables))
+
 	sb.WriteString(fmt.Sprintf("- 可用表: %s\n", strings.Join(tableNames, ", ")))
 	sb.WriteString("- 表结构:\n\n")
 
 	for _, table := range tables {
-		createSQL, err := connector.GetCreateTableSQL(ctx, dsConfig.Config, table.Name)
-		if err != nil {
-			logger.Warnf(ctx, "Failed to get CREATE TABLE for %s: %v, falling back to schema info", table.Name, err)
-			createSQL = datasource.FormatFallbackCreateTable(table)
-		}
+		createSQL := datasource.FormatFallbackCreateTable(table)
 		sb.WriteString(createSQL)
 		sb.WriteString("\n\n")
-
 		columns, rows, err := connector.GetSampleData(ctx, dsConfig.Config, table.Name, 3)
 		if err != nil {
 			logger.Warnf(ctx, "Failed to get sample data for %s: %v, skipping", table.Name, err)
@@ -775,4 +777,31 @@ func (s *sessionService) fetchDatabaseContextLegacy(ctx context.Context, dsConfi
 	sb.WriteString("- **只允许 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE**\n")
 
 	return sb.String()
+}
+
+// parseQueryParams parses the QueryParams JSON string into a map[field_name]field_value.
+// Expected format:
+//
+//	{"contents": [{"field_name":"user_id","field_value":"123456","field_description":"..."}, ...]}
+func (s *sessionService) parseQueryParams(jsonStr string) map[string]string {
+	type entry struct {
+		FieldName  string `json:"field_name"`
+		FieldValue string `json:"field_value"`
+	}
+	type payload struct {
+		Contents []entry `json:"contents"`
+	}
+
+	var p payload
+	if err := json.Unmarshal([]byte(jsonStr), &p); err != nil {
+		return nil
+	}
+
+	m := make(map[string]string, len(p.Contents))
+	for _, e := range p.Contents {
+		if e.FieldName != "" {
+			m[e.FieldName] = e.FieldValue
+		}
+	}
+	return m
 }

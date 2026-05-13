@@ -467,6 +467,7 @@ func buildQueryParamPromptBlock() string {
 		- **Schema mismatch**: If the requested data does not exist in the provided schema, explain which available fields or tables you used instead.
 		- **Empty results**: Distinguish between "no data within your scope" and a potential query error. Report accordingly.`)
 	*/
+	sb.WriteString("\n\n")
 	queryParamBlock := sb.String()
 	return queryParamBlock
 }
